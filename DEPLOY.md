@@ -30,42 +30,45 @@ cd ..
 ```
 
 ## ── FRONTEND SETUP ─────────────────────────────
-```bash
-npm create vite@latest client -- --template react
-cd client
-npm install tailwindcss @tailwindcss/vite axios \
-  @tanstack/react-query react-router-dom react-hot-toast \
-  recharts date-fns lucide-react
-```
+(The React + Vite frontend is already initialized in the root directory)
 
-### Create `.env` in `/client`
+### Configure `.env` in the root directory:
 ```env
 VITE_API_URL=http://localhost:5000/api
 ```
 
 ## ── RUN BOTH ───────────────────────────────────
-### Terminal 1 (backend):
+### Terminal 1 (backend API server):
 ```bash
-cd server && npm run dev
+cd server
+npm run dev
 ```
 
-### Terminal 2 (frontend):
+### Terminal 2 (frontend Vite client):
 ```bash
-cd client && npm run dev
+npm run dev
 ```
 
 ## ── PRODUCTION DEPLOY ──────────────────────────
 ### Backend → Render.com or Railway.app
-- Connect GitHub repo
-- Set env vars (`MONGODB_URI` using MongoDB Atlas, `JWT_SECRET`, `FRONTEND_URL`)
-- Build command: `npm install`
-- Start command: `node server.js`
+- Connect your GitHub repo.
+- In the Render dashboard:
+  - Set the **Root Directory** to `server`.
+  - Build Command: `npm install`
+  - Start Command: `node server.js`
+- Set the following environment variables:
+  - `MONGODB_URI`: Your MongoDB Atlas connection string.
+  - `JWT_SECRET`: A long secure random string.
+  - `FRONTEND_URL`: The URL of your deployed frontend (e.g. `https://your-app.vercel.app`).
 
 ### Frontend → Vercel
-- Connect GitHub repo `/client` folder
-- Set `VITE_API_URL` to your Render/Railway backend URL
-- Vercel auto-detects Vite and deploys automatically
+- Connect your GitHub repo.
+- In the Vercel dashboard:
+  - Set the **Root Directory** to `./` (keep it as the root directory, do NOT use `/client`).
+  - Vercel will automatically detect the Vite React project configuration.
+- Set the following environment variable in Vercel:
+  - `VITE_API_URL`: Your deployed Render/Railway backend API URL (e.g. `https://your-api.onrender.com/api`).
 
 ### MongoDB → MongoDB Atlas (free tier)
-- Create cluster at [mongodb.com/atlas](https://www.mongodb.com/atlas)
-- Get connection string → set as `MONGODB_URI`
+- Create a cluster at [mongodb.com/atlas](https://www.mongodb.com/atlas).
+- Obtain the connection string and set it as `MONGODB_URI` in the backend environment variables.
