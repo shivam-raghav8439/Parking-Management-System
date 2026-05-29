@@ -1,0 +1,11 @@
+import mongoose from 'mongoose';
+
+const slotSchema = new mongoose.Schema({
+  slotId: { type: String, required: true, unique: true },  // "A-01"
+  zone: { type: String, enum: ['A', 'B', 'C', 'D'], required: true },
+  status: { type: String, enum: ['available', 'occupied', 'reserved', 'maintenance'], default: 'available' },
+  vehicleTypes: [{ type: String, enum: ['Car', 'Bike', 'Bicycle', 'Bus'] }],
+  currentRecord: { type: mongoose.Schema.Types.ObjectId, ref: 'Record', default: null },
+}, { timestamps: true });
+
+export default mongoose.model('Slot', slotSchema);
