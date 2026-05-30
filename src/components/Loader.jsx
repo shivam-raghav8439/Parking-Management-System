@@ -27,7 +27,7 @@ export function TableSkeleton({ rows = 5, cols = 5 }) {
 
 export function SlotGridSkeleton() {
   return (
-    <div className="grid grid-cols-5 gap-4 animate-pulse">
+    <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2 md:gap-4 animate-pulse">
       {[...Array(15)].map((_, i) => (
         <div key={i} className="h-20 bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
       ))}

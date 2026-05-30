@@ -345,8 +345,8 @@ export default function RegisterVehicle() {
           </div>
 
           {/* Whitelist Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto -mx-6 px-6">
+            <table className="w-full text-left border-collapse min-w-[600px]">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-450 uppercase tracking-wider">
                   <th className="pb-3">License Plate</th>

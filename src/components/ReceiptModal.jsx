@@ -24,7 +24,7 @@ export default function ReceiptModal({
   const minutes = (record.durationMinutes || 0) % 60;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-x-hidden overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-4 overflow-x-hidden overflow-y-auto">
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm transition-opacity no-print" 
@@ -32,7 +32,7 @@ export default function ReceiptModal({
       ></div>
 
       {/* Modal Content */}
-      <div className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 animate-slide-up z-10 no-print">
+      <div className="relative w-full h-full sm:h-auto sm:max-w-sm bg-white dark:bg-slate-900 rounded-none sm:rounded-2xl shadow-2xl border-0 sm:border border-slate-200 dark:border-slate-800 animate-slide-up z-10 flex flex-col overflow-y-auto no-print">
         {/* Close Button */}
         <div className="absolute top-4 right-4">
           <button 

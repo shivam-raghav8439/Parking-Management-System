@@ -314,8 +314,8 @@ export default function Anpr() {
 
       {/* COMPLIANCE WARNING OVERLAY MODAL */}
       {pendingApproval && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 animate-scale-in text-left">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 sm:p-4">
+          <div className="bg-white dark:bg-slate-900 border-0 sm:border border-slate-200 dark:border-slate-800 rounded-none sm:rounded-3xl p-6 max-w-sm w-full h-full sm:h-auto overflow-y-auto shadow-2xl space-y-4 animate-scale-in text-left flex flex-col justify-between sm:justify-start">
             <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="p-2.5 bg-rose-500/10 text-rose-500 rounded-xl">
                 <AlertTriangle className="w-6 h-6 animate-pulse" />

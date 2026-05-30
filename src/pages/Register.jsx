@@ -63,12 +63,12 @@ export default function Register() {
 
         {/* Brand */}
         <div className="flex flex-col items-center mb-8">
-          <GalgotiasLogo className="w-16 h-16 mb-4" />
-          <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-wider font-sans">
+          <GalgotiasLogo className="w-12 h-12 md:w-16 md:h-16 mb-3 md:mb-4" />
+          <h2 className="text-lg md:text-xl font-black text-slate-900 dark:text-white uppercase tracking-wider font-sans">
             Register Operator
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 text-center leading-relaxed font-semibold">
-            Galgotias University Parking Management System
+          <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 mt-1 text-center leading-relaxed font-semibold">
+            Galgotias University Parking System
           </p>
         </div>
 

@@ -202,3 +202,32 @@ body.theme-amber {
   box-shadow: 0 0 8px 1px #ef4444;
   animation: scan 2s linear infinite;
 }
+
+/* Responsive Mobile Style Enhancements */
+@media (max-width: 768px) {
+  /* Prevent automatic text zoom on input focus in iOS Safari */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
+  /* Optimize touch target sizes */
+  button, a, select, input[type="text"], input[type="tel"], input[type="url"], input[type="password"], input[type="email"] {
+    min-height: 44px;
+  }
+
+  /* Make headings slightly smaller on small viewports */
+  h2 {
+    font-size: 1.25rem !important; /* 20px */
+    line-height: 1.75rem !important;
+  }
+  h3 {
+    font-size: 1.1rem !important; /* 17.6px */
+    line-height: 1.5rem !important;
+  }
+
+  /* Ensure correct padding adjustments for safe areas at the bottom */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+

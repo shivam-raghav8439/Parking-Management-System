@@ -45,7 +45,7 @@ export default function Dashboard() {
   if (statsLoading || activityLoading) {
     return (
       <div className="space-y-6 animate-fade-in">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
           <CardSkeleton />
           <CardSkeleton />
           <CardSkeleton />
@@ -79,7 +79,7 @@ export default function Dashboard() {
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
         <StatCard
           title="Total Slots"
           value={stats?.totalSlots ?? 140}
@@ -196,8 +196,8 @@ export default function Dashboard() {
         <h3 className="font-bold text-slate-900 dark:text-white mb-1">Live Activity Stream</h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 mb-5">Latest 10 logs of incoming and outgoing vehicles</p>
         
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+        <div className="overflow-x-auto -mx-6 px-6">
+          <table className="w-full text-left border-collapse min-w-[600px]">
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-400 uppercase tracking-wider">
                 <th className="pb-3">Action</th>

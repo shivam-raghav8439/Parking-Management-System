@@ -15,7 +15,7 @@ export default function ConfirmModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-x-hidden overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-4 overflow-x-hidden overflow-y-auto">
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm transition-opacity" 
@@ -23,7 +23,7 @@ export default function ConfirmModal({
       ></div>
 
       {/* Modal Box */}
-      <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 animate-slide-up overflow-hidden z-10">
+      <div className="relative w-full h-full sm:h-auto sm:max-w-md bg-white dark:bg-slate-900 rounded-none sm:rounded-2xl shadow-2xl border-0 sm:border border-slate-200 dark:border-slate-800 animate-slide-up flex flex-col overflow-y-auto z-10">
         <div className="absolute top-4 right-4">
           <button 
             type="button" 

@@ -373,7 +373,7 @@ export default function Settings() {
           <button
             type="submit"
             disabled={settingsMutation.isLoading}
-            className="px-6 py-3 bg-primary-700 hover:bg-primary-850 active:bg-primary-900 text-white font-bold rounded-xl text-sm shadow-md flex items-center gap-2 transition-all cursor-pointer"
+            className="w-full sm:w-auto px-6 py-3 bg-primary-700 hover:bg-primary-850 active:bg-primary-900 text-white font-bold rounded-xl text-sm shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
             <Save className="w-5 h-5" />
             {settingsMutation.isLoading ? 'Saving changes...' : 'Save Configuration'}

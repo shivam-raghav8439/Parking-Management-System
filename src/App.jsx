@@ -13,6 +13,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Anpr from './pages/Anpr';
 import RegisterVehicle from './pages/RegisterVehicle';
+import BottomNavigation from './components/BottomNavigation';
+
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -83,7 +85,7 @@ export default function App() {
         <Sidebar />
         
         {/* Main Content Workspace */}
-        <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full overflow-y-auto">
+        <main className="flex-1 p-4 md:p-6 lg:p-8 pb-24 md:pb-8 max-w-7xl mx-auto w-full overflow-y-auto">
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
@@ -99,6 +101,9 @@ export default function App() {
           </Routes>
         </main>
       </div>
+
+      {/* Mobile Bottom Navigation */}
+      {isAuthenticated && <BottomNavigation />}
     </div>
   );
 }
