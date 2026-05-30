@@ -27,5 +27,8 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.7"
+  },
+  "overrides": {
+    "hasown": "2.0.3"
   }
 }
