@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState, useRef, useEffect } from 'react';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { useDebounce } from '../hooks/useDebounce';
 import { parkingApi } from '../api/parkingApi';
 import { formatDateTime, formatDuration, formatRelativeTime } from '../utils/formatTime';
 import Badge from '../components/Badge';
@@ -20,8 +22,8 @@ export default function History() {
   const [activeTab, setActiveTab] = useState('vehicles'); // 'vehicles' or 'audit'
   
   // Vehicles pagination & filters
-  const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 500);
   const [status, setStatus] = useState('All');
   const [zone, setZone] = useState('All');
   const [vehicleType, setVehicleType] = useState('All');
@@ -36,14 +38,17 @@ export default function History() {
   const { 
     data: vehicleData, 
     isLoading: isVehiclesLoading, 
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
     refetch: refetchVehicles, 
     isFetching: isVehiclesFetching 
-  } = useQuery({
-    queryKey: ['parking-records', page, search, status, zone, vehicleType, ownerType, startDate, endDate],
-    queryFn: () => parkingApi.getRecords({
-      page,
+  } = useInfiniteQuery({
+    queryKey: ['parking-records', debouncedSearch, status, zone, vehicleType, ownerType, startDate, endDate],
+    queryFn: ({ pageParam = 1 }) => parkingApi.getRecords({
+      page: pageParam,
       limit: 20,
-      search: search.trim() || undefined,
+      search: debouncedSearch.trim() || undefined,
       status: status !== 'All' ? status.toLowerCase() : undefined,
       zone: zone !== 'All' ? zone : undefined,
       vehicleType: vehicleType !== 'All' ? vehicleType : undefined,
@@ -51,11 +56,53 @@ export default function History() {
       startDate: startDate || undefined,
       endDate: endDate || undefined
     }),
-    enabled: activeTab === 'vehicles',
-    keepPreviousData: true
+    getNextPageParam: (lastPage) => {
+      return lastPage.currentPage < lastPage.totalPages ? lastPage.currentPage + 1 : undefined;
+    },
+    initialPageParam: 1,
+    enabled: activeTab === 'vehicles'
   });
 
-  // Fetch paginated system audit logs (Audit tab)
+  const records = vehicleData?.pages.flatMap(page => page.records) || [];
+  const totalCount = vehicleData?.pages[0]?.totalCount || 0;
+
+  const parentRef = useRef();
+
+  const rowVirtualizer = useVirtualizer({
+    count: hasNextPage ? records.length + 1 : records.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 52, // estimated height of row in px
+    overscan: 5,
+  });
+
+  useEffect(() => {
+    const [lastItem] = [...rowVirtualizer.getVirtualItems()].reverse();
+    if (!lastItem) return;
+
+    if (
+      lastItem.index >= records.length - 1 &&
+      hasNextPage &&
+      !isFetchingNextPage
+    ) {
+      fetchNextPage();
+    }
+  }, [
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+    records.length,
+    rowVirtualizer.getVirtualItems(),
+  ]);
+
+  const handleResetFilters = () => {
+    setSearch('');
+    setStatus('All');
+    setZone('All');
+    setVehicleType('All');
+    setOwnerType('All');
+    setStartDate('');
+    setEndDate('');
+  };// Fetch paginated system audit logs (Audit tab)
   const { 
     data: auditData, 
     isLoading: isAuditLoading, 
@@ -71,19 +118,10 @@ export default function History() {
     keepPreviousData: true
   });
 
-  const handleResetFilters = () => {
-    setSearch('');
-    setStatus('All');
-    setZone('All');
-    setVehicleType('All');
-    setOwnerType('All');
-    setStartDate('');
-    setEndDate('');
-    setPage(1);
-  };
+
 
   const handleExportCSV = () => {
-    if (!vehicleData || !vehicleData.records || vehicleData.records.length === 0) return;
+    if (records.length === 0) return;
     
     const headers = [
       'License Plate', 
@@ -98,7 +136,7 @@ export default function History() {
       'Status'
     ];
 
-    const rows = vehicleData.records.map(r => [
+    const rows = records.map(r => [
       r.plate,
       `"${r.ownerName.replace(/"/g, '""')}"`,
       r.vehicleType,
@@ -158,7 +196,7 @@ export default function History() {
           <div className="flex gap-2">
             <button
               onClick={handleExportCSV}
-              disabled={!vehicleData || vehicleData.records?.length === 0}
+              disabled={records.length === 0}
               className="px-4 py-2.5 bg-emerald-650 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-md flex items-center gap-2 transition-all cursor-pointer"
             >
               <Download className="w-4 h-4" />
@@ -334,62 +372,111 @@ export default function History() {
               <div className="p-6">
                 <TableSkeleton rows={8} cols={9} />
               </div>
-            ) : vehicleData && vehicleData.records && vehicleData.records.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[900px]">
-                  <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-800 text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest bg-slate-50/50 dark:bg-slate-950/20">
-                      <th className="py-4 px-6">Plate Number</th>
-                      <th className="py-4 px-4">Owner Name</th>
-                      <th className="py-4 px-4">Category</th>
-                      <th className="py-4 px-4">Slot</th>
-                      <th className="py-4 px-4">In Time</th>
-                      <th className="py-4 px-4">Out Time</th>
-                      <th className="py-4 px-4">Duration</th>
-                      <th className="py-4 px-4">Fee Paid</th>
-                      <th className="py-4 px-6 text-right">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50 text-xs">
-                    {vehicleData.records.map((rec) => {
-                      const hours = Math.floor((rec.durationMinutes || 0) / 60);
-                      const mins = (rec.durationMinutes || 0) % 60;
-                      
-                      return (
-                        <tr key={rec.id || rec._id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850/50 transition-colors">
-                          <td className="py-3.5 px-6">
-                            <span className="license-plate-small">{rec.plate}</span>
-                          </td>
-                          <td className="py-3.5 px-4 font-semibold text-slate-800 dark:text-slate-200">
-                            {rec.ownerName}
-                          </td>
-                          <td className="py-3.5 px-4 flex flex-col gap-1 items-start">
-                            <Badge type={rec.vehicleType}>{rec.vehicleType}</Badge>
-                            <span className="text-[10px] text-slate-400">{rec.ownerType}</span>
-                          </td>
-                          <td className="py-3.5 px-4 font-mono font-extrabold text-slate-650 dark:text-slate-400">
-                            {rec.slotId || rec.slotNumber}
-                          </td>
-                          <td className="py-3.5 px-4 text-slate-505 dark:text-slate-400 font-mono text-[11px]">
-                            {formatDateTime(rec.entryTime)}
-                          </td>
-                          <td className="py-3.5 px-4 text-slate-505 dark:text-slate-400 font-mono text-[11px]">
-                            {rec.exitTime ? formatDateTime(rec.exitTime) : 'N/A'}
-                          </td>
-                          <td className="py-3.5 px-4 font-semibold text-slate-705 dark:text-slate-350">
-                            {rec.exitTime ? formatDuration(hours, mins) : '--'}
-                          </td>
-                          <td className="py-3.5 px-4 font-bold text-slate-800 dark:text-slate-200">
-                            {rec.fee !== null && rec.fee !== undefined ? `₹${rec.fee}` : '--'}
-                          </td>
-                          <td className="py-3.5 px-6 text-right">
-                            <Badge type={rec.status}>{rec.status}</Badge>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+            ) : records.length > 0 ? (
+              <div 
+                ref={parentRef} 
+                className="overflow-y-auto max-h-[550px] relative border-b border-slate-200 dark:border-slate-800"
+              >
+                <div
+                  style={{
+                    height: `${rowVirtualizer.getTotalSize()}px`,
+                    width: '100%',
+                    position: 'relative',
+                  }}
+                >
+                  <table className="w-full text-left border-collapse min-w-[900px]">
+                    <thead className="sticky top-0 bg-slate-50 dark:bg-slate-905/90 backdrop-blur-sm z-10 shadow-[0_1px_0_0_rgba(226,232,240,1)] dark:shadow-[0_1px_0_0_rgba(30,41,59,1)]">
+                      <tr className="flex border-b border-slate-200 dark:border-slate-800 text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest bg-slate-50/50 dark:bg-slate-950/20">
+                        <th className="py-4 px-6 flex-[1.2] min-w-[120px]">Plate Number</th>
+                        <th className="py-4 px-4 flex-[1.5] min-w-[150px]">Owner Name</th>
+                        <th className="py-4 px-4 flex-[1.2] min-w-[120px]">Category</th>
+                        <th className="py-4 px-4 flex-[0.8] min-w-[80px]">Slot</th>
+                        <th className="py-4 px-4 flex-[1.5] min-w-[150px]">In Time</th>
+                        <th className="py-4 px-4 flex-[1.5] min-w-[150px]">Out Time</th>
+                        <th className="py-4 px-4 flex-[1.0] min-w-[100px]">Duration</th>
+                        <th className="py-4 px-4 flex-[0.8] min-w-[80px]">Fee Paid</th>
+                        <th className="py-4 px-6 flex-[0.8] min-w-[85px] text-right justify-end">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-xs">
+                      {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                        const isLoaderRow = virtualRow.index === records.length;
+                        
+                        if (isLoaderRow) {
+                          return (
+                            <tr
+                              key="loader-row"
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                width: '100%',
+                                height: `${virtualRow.size}px`,
+                                transform: `translateY(${virtualRow.start}px)`,
+                              }}
+                              className="flex items-center justify-center py-4 text-slate-450 border-b border-slate-100 dark:border-slate-800/50"
+                            >
+                              <td className="w-full text-center flex justify-center items-center py-2 font-semibold">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600 mr-2"></div>
+                                Loading more records...
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        const rec = records[virtualRow.index];
+                        if (!rec) return null;
+                        
+                        const hours = Math.floor((rec.durationMinutes || 0) / 60);
+                        const mins = (rec.durationMinutes || 0) % 60;
+
+                        return (
+                          <tr
+                            key={rec.id || rec._id || virtualRow.index}
+                            style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              width: '100%',
+                              height: `${virtualRow.size}px`,
+                              transform: `translateY(${virtualRow.start}px)`,
+                            }}
+                            className="flex items-center hover:bg-slate-50/50 dark:hover:bg-slate-850/50 border-b border-slate-100 dark:border-slate-800/50 transition-colors"
+                          >
+                            <td className="px-6 flex-[1.2] min-w-[120px] truncate">
+                              <span className="license-plate-small">{rec.plate}</span>
+                            </td>
+                            <td className="px-4 flex-[1.5] min-w-[150px] font-semibold text-slate-800 dark:text-slate-200 truncate">
+                              {rec.ownerName}
+                            </td>
+                            <td className="px-4 flex-[1.2] min-w-[120px] flex flex-col gap-0.5 items-start justify-center">
+                              <Badge type={rec.vehicleType}>{rec.vehicleType}</Badge>
+                              <span className="text-[10px] text-slate-400">{rec.ownerType}</span>
+                            </td>
+                            <td className="px-4 flex-[0.8] min-w-[80px] font-mono font-extrabold text-slate-650 dark:text-slate-400 truncate">
+                              {rec.slotId || rec.slotNumber}
+                            </td>
+                            <td className="px-4 flex-[1.5] min-w-[150px] text-slate-505 dark:text-slate-400 font-mono text-[11px] truncate">
+                              {formatDateTime(rec.entryTime)}
+                            </td>
+                            <td className="px-4 flex-[1.5] min-w-[150px] text-slate-505 dark:text-slate-400 font-mono text-[11px] truncate">
+                              {rec.exitTime ? formatDateTime(rec.exitTime) : 'N/A'}
+                            </td>
+                            <td className="px-4 flex-[1.0] min-w-[100px] font-semibold text-slate-705 dark:text-slate-350 truncate">
+                              {rec.exitTime ? formatDuration(hours, mins) : '--'}
+                            </td>
+                            <td className="px-4 flex-[0.8] min-w-[80px] font-bold text-slate-800 dark:text-slate-200 truncate">
+                              {rec.fee !== null && rec.fee !== undefined ? `₹${rec.fee}` : '--'}
+                            </td>
+                            <td className="px-6 flex-[0.8] min-w-[85px] text-right justify-end">
+                              <Badge type={rec.status}>{rec.status}</Badge>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             ) : (
               <div className="py-24 text-center text-slate-450 text-sm">
@@ -397,28 +484,18 @@ export default function History() {
               </div>
             )}
 
-            {/* Pagination Panel */}
-            {vehicleData && vehicleData.totalPages > 1 && (
-              <div className="p-4 bg-slate-50/50 dark:bg-slate-950/20 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
-                <span className="text-xs text-slate-500">
-                  Showing page <b>{vehicleData.currentPage}</b> of <b>{vehicleData.totalPages}</b> ({vehicleData.totalCount} records)
+            {/* Total records status bar */}
+            {!isVehiclesLoading && records.length > 0 && (
+              <div className="p-4 bg-slate-50/50 dark:bg-slate-950/20 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500">
+                <span>
+                  Showing <b>{records.length}</b> of <b>{totalCount}</b> total logs.
                 </span>
-                <div className="flex gap-2">
-                  <button
-                    disabled={page === 1}
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                    className="p-2 border border-slate-250 dark:border-slate-800 rounded-lg text-slate-500 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-800"
-                  >
-                    <ChevronLeft className="w-4.5 h-4.5" />
-                  </button>
-                  <button
-                    disabled={page === vehicleData.totalPages}
-                    onClick={() => setPage(p => Math.min(vehicleData.totalPages, p + 1))}
-                    className="p-2 border border-slate-250 dark:border-slate-800 rounded-lg text-slate-500 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-800"
-                  >
-                    <ChevronRight className="w-4.5 h-4.5" />
-                  </button>
-                </div>
+                {isVehiclesFetching && !isFetchingNextPage && (
+                  <span className="flex items-center gap-1">
+                    <span className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-primary-600"></span>
+                    Refreshing...
+                  </span>
+                )}
               </div>
             )}
           </div>

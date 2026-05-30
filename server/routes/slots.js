@@ -6,13 +6,14 @@ import {
   seedSlots 
 } from '../controllers/slotController.js';
 import { protect, restrictTo } from '../middleware/auth.js';
+import { cacheMiddleware } from '../utils/cache.js';
 
 const router = express.Router();
 
 // Require authentication for all slots operations
 router.use(protect);
 
-router.get('/', getSlots);
+router.get('/', cacheMiddleware(10), getSlots);
 router.get('/:slotId', getSlotById);
 
 // Admin-only operations

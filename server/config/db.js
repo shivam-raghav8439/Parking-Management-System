@@ -6,7 +6,8 @@ export const connectDB = async () => {
   try {
     // Timeout in 2000ms if no local database is running, allowing quick fallback
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      serverSelectionTimeoutMS: 2000
+      serverSelectionTimeoutMS: 2000,
+      maxPoolSize: 10
     });
     console.log(`MongoDB Connected: ${conn.connection.host}`);
     global.isMockDB = false;

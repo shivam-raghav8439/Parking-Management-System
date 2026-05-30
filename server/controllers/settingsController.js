@@ -3,6 +3,7 @@ import Slot from '../models/Slot.js';
 import { logSystemActivity } from '../utils/logger.js';
 import { SLOT_STATUSES } from '../config/constants.js';
 import { mockController } from '../utils/mockController.js';
+import { clearCachePattern } from '../utils/cache.js';
 
 /**
  * @desc    Get current parking configurations
@@ -113,6 +114,11 @@ export const updateSettings = async (req, res, next) => {
     }
 
     await settings.save();
+
+    // Clear caching (settings, slots, stats)
+    await clearCachePattern('cache:/api/settings*');
+    await clearCachePattern('cache:/api/slots*');
+    await clearCachePattern('cache:/api/stats*');
 
     // Log settings change
     await logSystemActivity(

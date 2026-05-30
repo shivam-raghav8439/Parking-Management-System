@@ -8,4 +8,6 @@ const slotSchema = new mongoose.Schema({
   currentRecord: { type: mongoose.Schema.Types.ObjectId, ref: 'Record', default: null },
 }, { timestamps: true });
 
+slotSchema.index({ status: 1, zone: 1 });
+
 export default mongoose.model('Slot', slotSchema);

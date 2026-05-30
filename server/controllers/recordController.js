@@ -6,6 +6,7 @@ import { calcFee } from '../utils/feeCalculator.js';
 import { logSystemActivity } from '../utils/logger.js';
 import { SLOT_STATUSES, RECORD_STATUSES } from '../config/constants.js';
 import { mockController } from '../utils/mockController.js';
+import { clearParkingCaches } from '../utils/cache.js';
 
 /**
  * @desc    Check-in vehicle (Register entry & occupy slot)
@@ -58,6 +59,9 @@ export const createEntry = async (req, res, next) => {
     slotDoc.status = SLOT_STATUSES.OCCUPIED;
     slotDoc.currentRecord = record._id;
     await slotDoc.save();
+
+    // Clear caching
+    await clearParkingCaches();
 
     // Log this event in system audit trail
     await logSystemActivity(
@@ -148,6 +152,9 @@ export const exitRecord = async (req, res, next) => {
       await slotDoc.save();
     }
 
+    // Clear caching
+    await clearParkingCaches();
+
     // Log this event in system audit trail
     const hours = Math.floor(billingDuration / 60);
     const mins = billingDuration % 60;
@@ -215,7 +222,10 @@ export const searchRecords = async (req, res, next) => {
         { plate: regex },
         { slotId: regex }
       ]
-    }).populate('slot');
+    })
+    .select('plate ownerName vehicleType ownerType slotId entryTime status')
+    .populate('slot')
+    .lean();
 
     res.status(200).json({
       success: true,
@@ -269,18 +279,15 @@ export const getRecords = async (req, res, next) => {
     }
 
     if (req.query.search) {
-      const regex = new RegExp(req.query.search, 'i');
-      query.$or = [
-        { plate: regex },
-        { ownerName: regex },
-        { slotId: regex }
-      ];
+      query.$text = { $search: req.query.search };
     }
 
     const records = await Record.find(query)
+      .select('plate ownerName vehicleType ownerType slotId entryTime exitTime durationMinutes fee status')
       .sort({ entryTime: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean();
 
     const totalCount = await Record.countDocuments(query);
     const totalPages = Math.ceil(totalCount / limit);

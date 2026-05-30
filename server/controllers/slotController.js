@@ -2,6 +2,7 @@ import Slot from '../models/Slot.js';
 import { logSystemActivity } from '../utils/logger.js';
 import { SLOT_STATUSES, DEFAULT_ZONES_CONFIG } from '../config/constants.js';
 import { mockController } from '../utils/mockController.js';
+import { clearParkingCaches } from '../utils/cache.js';
 
 /**
  * @desc    Get all slots (optional zone filter)
@@ -95,6 +96,9 @@ export const updateSlotStatus = async (req, res, next) => {
     slot.status = status;
     await slot.save();
 
+    // Clear caching
+    await clearParkingCaches();
+
     // Log slot status changes
     await logSystemActivity(
       'SLOT_UPDATE', 
@@ -154,6 +158,9 @@ export const seedSlots = async (req, res, next) => {
     });
 
     const seeded = await Slot.insertMany(slotsToSeed);
+
+    // Clear caching
+    await clearParkingCaches();
 
     res.status(201).json({
       success: true,

@@ -4,6 +4,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
+import compression from 'compression';
+import { connectRedis } from './utils/cache.js';
 
 // Database & Middlewares
 import connectDB from './config/db.js';
@@ -32,10 +34,13 @@ import './models/AnprLog.js';
 
 // 2. Connect to MongoDB
 connectDB();
+// Connect to Redis Cache
+connectRedis();
 
 const app = express();
 
 // 3. Configure Global Middlewares
+app.use(compression());
 app.use(helmet());
 app.use(express.json());
 
@@ -63,7 +68,20 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// 5. Mount Routes
+// 5. Global API Rate Limiter
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200, // limit each IP to 200 requests per 15 minutes
+  message: {
+    success: false,
+    message: 'Too many requests from this IP, please try again after 15 minutes.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// 6. Mount Routes
+app.use('/api', apiLimiter);
 app.use('/api/auth', authLimiter, authRouter);
 app.use('/api/records', recordRouter);
 app.use('/api/slots', slotRouter);

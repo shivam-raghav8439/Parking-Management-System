@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { parkingApi } from '../api/parkingApi';
+import { useDebounce } from '../hooks/useDebounce';
 import Badge from '../components/Badge';
 import { 
   FileSpreadsheet, 
@@ -24,6 +25,7 @@ export default function RegisterVehicle() {
 
   // Filters
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 500);
   const [ownerTypeFilter, setOwnerTypeFilter] = useState('All');
   const [vehicleTypeFilter, setVehicleTypeFilter] = useState('All');
 
@@ -43,7 +45,7 @@ export default function RegisterVehicle() {
       const data = await parkingApi.getRegisteredVehicles({
         page,
         limit: 10,
-        search,
+        search: debouncedSearch,
         ownerType: ownerTypeFilter,
         vehicleType: vehicleTypeFilter
       });
@@ -62,7 +64,7 @@ export default function RegisterVehicle() {
 
   useEffect(() => {
     fetchRegisteredVehicles(1);
-  }, [search, ownerTypeFilter, vehicleTypeFilter]);
+  }, [debouncedSearch, ownerTypeFilter, vehicleTypeFilter]);
 
   // Form Submit
   const handleRegisterSubmit = async (e) => {
@@ -357,7 +359,7 @@ export default function RegisterVehicle() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                {isLoading ? (
+                {isLoading || search !== debouncedSearch ? (
                   <tr>
                     <td colSpan="5" className="py-12 text-center text-slate-450">
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-slate-455 mx-auto"></div>

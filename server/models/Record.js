@@ -19,8 +19,12 @@ const recordSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Indexes for fast queries:
+recordSchema.index({ plate: 1 });
+recordSchema.index({ status: 1 });
+recordSchema.index({ entryTime: -1 });
+recordSchema.index({ zone: 1, status: 1 });
 recordSchema.index({ plate: 1, status: 1 });
 recordSchema.index({ status: 1, entryTime: -1 });
-recordSchema.index({ zone: 1, status: 1 });
+recordSchema.index({ plate: 'text', ownerName: 'text' });
 
 export default mongoose.model('Record', recordSchema);

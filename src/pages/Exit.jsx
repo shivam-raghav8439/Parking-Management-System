@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useActiveRecords, useSearchRecords, useExitRecord } from '../hooks/useRecords';
+import { useDebounce } from '../hooks/useDebounce';
 import { calculateFee } from '../utils/calcFee';
 import { formatDateTime, formatDuration } from '../utils/formatTime';
 import { DEFAULT_SETTINGS } from '../utils/constants';
@@ -11,6 +12,7 @@ import { Search, LogOut, Clock, DollarSign, User, MapPin } from 'lucide-react';
 
 export default function Exit() {
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [finalizedRecord, setFinalizedRecord] = useState(null);
@@ -21,7 +23,7 @@ export default function Exit() {
 
   // Queries and mutations
   const { data: activeList, isLoading: activeLoading } = useActiveRecords();
-  const { data: searchResults, isLoading: searchLoading } = useSearchRecords(searchQuery);
+  const { data: searchResults, isLoading: searchLoading } = useSearchRecords(debouncedSearchQuery);
   const exitMutation = useExitRecord();
 
   // Load Settings for Rates
@@ -49,7 +51,7 @@ export default function Exit() {
 
   // Determine which list of vehicles to show (search results or all active list)
   const displayList = searchQuery.trim() !== '' ? (searchResults || []) : (activeList || []);
-  const isLoading = searchQuery.trim() !== '' ? searchLoading : activeLoading;
+  const isLoading = searchQuery.trim() !== '' ? (searchLoading || searchQuery !== debouncedSearchQuery) : activeLoading;
 
   const handleSelectVehicle = (record) => {
     setSelectedRecord(record);

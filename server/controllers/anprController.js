@@ -9,6 +9,7 @@ import { findBestSlot } from '../utils/slotAssigner.js';
 import { logSystemActivity } from '../utils/logger.js';
 import { SLOT_STATUSES, RECORD_STATUSES } from '../config/constants.js';
 import { mockController } from '../utils/mockController.js';
+import { clearParkingCaches } from '../utils/cache.js';
 
 // Setup node-webcam options
 const webcamOptions = {
@@ -159,6 +160,9 @@ export const autoEntry = async (req, res, next) => {
     slotDoc.status = SLOT_STATUSES.OCCUPIED;
     slotDoc.currentRecord = record._id;
     await slotDoc.save();
+
+    // Clear caching
+    await clearParkingCaches();
 
     // 6. Update vehicle analytics visits
     vehicle.totalVisits += 1;

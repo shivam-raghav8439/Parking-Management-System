@@ -1,19 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
-import Dashboard from './pages/Dashboard';
-import Entry from './pages/Entry';
-import Exit from './pages/Exit';
-import ParkingMap from './pages/ParkingMap';
-import History from './pages/History';
-import Reports from './pages/Reports';
-import Settings from './pages/Settings';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Anpr from './pages/Anpr';
-import RegisterVehicle from './pages/RegisterVehicle';
 import BottomNavigation from './components/BottomNavigation';
+import Spinner from './components/Loader';
+
+// Lazy load route pages
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Entry = lazy(() => import('./pages/Entry'));
+const Exit = lazy(() => import('./pages/Exit'));
+const ParkingMap = lazy(() => import('./pages/ParkingMap'));
+const History = lazy(() => import('./pages/History'));
+const Reports = lazy(() => import('./pages/Reports'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const Anpr = lazy(() => import('./pages/Anpr'));
+const RegisterVehicle = lazy(() => import('./pages/RegisterVehicle'));
 
 
 export default function App() {
@@ -65,11 +68,13 @@ export default function App() {
   if (isAuthRoute) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-center transition-colors duration-300">
-        <Routes>
-          <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" replace />} />
-          <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
+        <Suspense fallback={<Spinner />}>
+          <Routes>
+            <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" replace />} />
+            <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </Suspense>
       </div>
     );
   }
@@ -86,19 +91,21 @@ export default function App() {
         
         {/* Main Content Workspace */}
         <main className="flex-1 p-4 md:p-6 lg:p-8 pb-24 md:pb-8 max-w-7xl mx-auto w-full overflow-y-auto">
-          <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
-            <Route path="/entry" element={<RequireAuth><Entry /></RequireAuth>} />
-            <Route path="/exit" element={<RequireAuth><Exit /></RequireAuth>} />
-            <Route path="/map" element={<RequireAuth><ParkingMap /></RequireAuth>} />
-            <Route path="/history" element={<RequireAuth><History /></RequireAuth>} />
-            <Route path="/reports" element={<RequireAuth><Reports /></RequireAuth>} />
-            <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
-            <Route path="/anpr" element={<RequireAuth><Anpr /></RequireAuth>} />
-            <Route path="/register-vehicle" element={<RequireAuth><RegisterVehicle /></RequireAuth>} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
+          <Suspense fallback={<Spinner />}>
+            <Routes>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+              <Route path="/entry" element={<RequireAuth><Entry /></RequireAuth>} />
+              <Route path="/exit" element={<RequireAuth><Exit /></RequireAuth>} />
+              <Route path="/map" element={<RequireAuth><ParkingMap /></RequireAuth>} />
+              <Route path="/history" element={<RequireAuth><History /></RequireAuth>} />
+              <Route path="/reports" element={<RequireAuth><Reports /></RequireAuth>} />
+              <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
+              <Route path="/anpr" element={<RequireAuth><Anpr /></RequireAuth>} />
+              <Route path="/register-vehicle" element={<RequireAuth><RegisterVehicle /></RequireAuth>} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </Suspense>
         </main>
       </div>
 
