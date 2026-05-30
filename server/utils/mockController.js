@@ -2,6 +2,8 @@ import { subDays, subHours, format, startOfDay } from 'date-fns';
 import { SLOT_STATUSES, RECORD_STATUSES, DEFAULT_RATES } from '../config/constants.js';
 import { calcFee } from '../utils/feeCalculator.js';
 import { logSystemActivity } from './logger.js';
+import Tesseract from 'tesseract.js';
+import sharp from 'sharp';
 
 // In-Memory Slot Assignation helper
 const findBestMockSlot = (vehicleType, zonePreference) => {
@@ -297,6 +299,9 @@ export const mockController = {
       zoneOccupancy[z] = zoneSlots.length > 0 ? Math.round((zoneOccupied / zoneSlots.length) * 100) : 0;
     });
 
+    const anprToday = records
+      .filter(r => r.isAutoEntry === true && new Date(r.entryTime) >= today).length;
+
     return res.status(200).json({
       success: true,
       totalSlots,
@@ -304,7 +309,8 @@ export const mockController = {
       occupiedSlots,
       reservedSlots,
       todayRevenue,
-      zoneOccupancy
+      zoneOccupancy,
+      anprToday
     });
   },
 
@@ -555,5 +561,359 @@ export const mockController = {
     await logSystemActivity('SETTINGS_UPDATE', 'Updated settings and resized capacity limits.', req.user?._id);
 
     return res.status(200).json({ success: true, message: 'Settings saved', data: global.mockDb.settings });
+  },
+
+  // -------------------------------------------------------------
+  // ANPR
+  // -------------------------------------------------------------
+  recognize: async (req, res) => {
+    try {
+      const { image } = req.body;
+      if (!image) {
+        return res.status(400).json({ success: false, message: 'Image base64 data required' });
+      }
+
+      let plate = 'MH12AB1234';
+      let confidence = 92;
+
+      try {
+        const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
+        const imageBuffer = Buffer.from(base64Data, 'base64');
+        
+        let processedBuffer = imageBuffer;
+        try {
+          processedBuffer = await sharp(imageBuffer).grayscale().resize(800).toBuffer();
+        } catch (e) {}
+
+        const ocrResult = await Tesseract.recognize(processedBuffer, 'eng');
+        const text = ocrResult.data.text || "";
+        confidence = ocrResult.data.confidence || 0;
+
+        const cleanedText = text.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const matches = cleanedText.match(/[A-Z0-9]{6,10}/);
+        plate = matches ? matches[0] : cleanedText.substring(0, 10);
+      } catch (err) {
+        console.warn("Tesseract OCR failed in Mock Sandbox mode, using mock plate values:", err.message);
+        const whitelisted = global.mockDb.registeredVehicles || [];
+        if (whitelisted.length > 0) {
+          if (Math.random() > 0.4) {
+            const randVehicle = whitelisted[Math.floor(Math.random() * whitelisted.length)];
+            plate = randVehicle.plate;
+          } else {
+            plate = 'KA05BB' + Math.floor(1000 + Math.random() * 9000);
+          }
+        }
+        confidence = Math.floor(Math.random() * 20) + 80;
+      }
+
+      return res.status(200).json({
+        success: true,
+        plate: plate || 'UNKNOWN',
+        confidence,
+        rawText: "Simulated Sandbox OCR result"
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  autoEntry: async (req, res) => {
+    try {
+      const { plate } = req.body;
+      const formattedPlate = plate.toUpperCase().trim();
+
+      const vehicle = global.mockDb.registeredVehicles.find(v => v.plate === formattedPlate && v.isActive);
+      if (!vehicle) {
+        global.mockDb.anprLogs.unshift({
+          _id: `mock_anpr_log_${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          plate: formattedPlate,
+          confidence: 95,
+          result: 'failed',
+          message: 'Vehicle not registered in system registry.',
+          slotNumber: ''
+        });
+
+        return res.status(200).json({ success: false, message: 'Vehicle not registered' });
+      }
+
+      const active = global.mockDb.records.find(r => r.plate === formattedPlate && r.status === 'active');
+      if (active) {
+        global.mockDb.anprLogs.unshift({
+          _id: `mock_anpr_log_${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          plate: formattedPlate,
+          confidence: 95,
+          result: 'failed',
+          message: `Denied auto-entry: Vehicle already parked in slot ${active.slotId}.`,
+          slotNumber: ''
+        });
+
+        return res.status(409).json({ success: false, message: `Vehicle already parked in slot ${active.slotId}.` });
+      }
+
+      const slots = global.mockDb.slots;
+      const freeSlots = slots.filter(s => s.status === SLOT_STATUSES.AVAILABLE || s.status === SLOT_STATUSES.RESERVED);
+      
+      let slot = null;
+      const zonePriority = (vehicle.vehicleType === 'Car' || vehicle.vehicleType === 'Bus') ? ['A', 'C', 'D'] : ['B', 'C', 'D'];
+      for (const zoneId of zonePriority) {
+        const zoneSlots = freeSlots.filter(s => s.zone === zoneId && s.vehicleTypes.includes(vehicle.vehicleType));
+        if (zoneSlots.length > 0) {
+          zoneSlots.sort((a, b) => {
+            if (a.status === SLOT_STATUSES.AVAILABLE && b.status === SLOT_STATUSES.RESERVED) return -1;
+            if (a.status === SLOT_STATUSES.RESERVED && b.status === SLOT_STATUSES.AVAILABLE) return 1;
+            return a.slotId.localeCompare(b.slotId);
+          });
+          slot = zoneSlots[0];
+          break;
+        }
+      }
+
+      if (!slot) {
+        return res.status(409).json({ success: false, message: 'No available slots found.' });
+      }
+
+      const newRecord = {
+        _id: `mock_rec_${Date.now()}`,
+        plate: formattedPlate,
+        ownerName: vehicle.ownerName,
+        ownerType: vehicle.ownerType,
+        vehicleType: vehicle.vehicleType,
+        mobile: vehicle.mobile || '',
+        slot: slot._id,
+        slotId: slot.slotId,
+        zone: slot.zone,
+        entryTime: new Date().toISOString(),
+        exitTime: null,
+        durationMinutes: null,
+        fee: null,
+        status: 'active',
+        isAutoEntry: true,
+        createdBy: req.user?._id || 'mock_admin_id'
+      };
+
+      slot.status = SLOT_STATUSES.OCCUPIED;
+      slot.currentRecord = newRecord;
+
+      global.mockDb.records.push(newRecord);
+
+      vehicle.totalVisits += 1;
+      vehicle.lastSeen = new Date().toISOString();
+
+      global.mockDb.anprLogs.unshift({
+        _id: `mock_anpr_log_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        plate: formattedPlate,
+        confidence: 95,
+        result: 'success',
+        message: `Auto-entry success. Gate opened, assigned slot: ${slot.slotId}`,
+        slotNumber: slot.slotId
+      });
+
+      await logSystemActivity('VEHICLE_ENTRY', `ANPR Auto-Entry checked in ${vehicle.vehicleType} plate ${formattedPlate} to slot ${slot.slotId}.`, req.user?._id);
+
+      return res.status(200).json({
+        success: true,
+        slot: slot.slotId,
+        message: `Auto-entry success! Allocated slot: ${slot.slotId}`,
+        record: newRecord
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  getCameraStatus: (req, res) => {
+    return res.status(200).json({
+      success: true,
+      cameraConnected: true,
+      status: 'Online',
+      details: 'Mock camera interface running (Simulated Gate Cam)'
+    });
+  },
+
+  registerVehicle: async (req, res) => {
+    try {
+      const { plate, ownerName, ownerType, vehicleType, mobile, photo } = req.body;
+      const formattedPlate = plate.toUpperCase().trim();
+
+      const existing = global.mockDb.registeredVehicles.find(v => v.plate === formattedPlate);
+      if (existing) {
+        return res.status(400).json({ success: false, message: `Plate ${formattedPlate} is already registered under ${existing.ownerName}` });
+      }
+
+      const newVehicle = {
+        _id: `mock_reg_${Date.now()}`,
+        plate: formattedPlate,
+        ownerName,
+        ownerType,
+        vehicleType,
+        mobile: mobile || '',
+        photo: photo || '',
+        isActive: true,
+        registeredAt: new Date().toISOString(),
+        lastSeen: null,
+        totalVisits: 0
+      };
+
+      global.mockDb.registeredVehicles.push(newVehicle);
+
+      await logSystemActivity(
+        'SETTINGS_UPDATE',
+        `Registered vehicle ${formattedPlate} for auto-entry (Owner: ${ownerName}, Category: ${ownerType}).`,
+        req.user?._id
+      );
+
+      return res.status(201).json({ success: true, message: 'Vehicle pre-registered successfully', data: newVehicle });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  getRegisteredVehicles: (req, res) => {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const skip = (page - 1) * limit;
+
+      let list = [...global.mockDb.registeredVehicles];
+
+      if (req.query.search) {
+        const q = req.query.search.toLowerCase();
+        list = list.filter(v => v.plate.toLowerCase().includes(q) || v.ownerName.toLowerCase().includes(q) || v.mobile.includes(q));
+      }
+      if (req.query.ownerType) {
+        list = list.filter(v => v.ownerType === req.query.ownerType);
+      }
+      if (req.query.vehicleType) {
+        list = list.filter(v => v.vehicleType === req.query.vehicleType);
+      }
+
+      list.sort((a,b) => new Date(b.registeredAt) - new Date(a.registeredAt));
+
+      const paginated = list.slice(skip, skip + limit);
+      const logs = [...global.mockDb.anprLogs].slice(0, 10);
+
+      return res.status(200).json({
+        success: true,
+        vehicles: paginated,
+        recentLogs: logs,
+        totalCount: list.length,
+        totalPages: Math.ceil(list.length / limit),
+        currentPage: page
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  deleteRegisteredVehicle: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const idx = global.mockDb.registeredVehicles.findIndex(v => v._id === id);
+      if (idx === -1) {
+        return res.status(404).json({ success: false, message: 'Registered vehicle not found' });
+      }
+
+      const vehicle = global.mockDb.registeredVehicles[idx];
+      global.mockDb.registeredVehicles.splice(idx, 1);
+
+      await logSystemActivity(
+        'SETTINGS_UPDATE',
+        `Deregistered vehicle ${vehicle.plate} (Owner: ${vehicle.ownerName}).`,
+        req.user?._id
+      );
+
+      return res.status(200).json({ success: true, message: 'Vehicle removed from pre-registration database.' });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  getVehicleDetails: (req, res) => {
+    try {
+      const { plate } = req.body;
+      if (!plate) {
+        return res.status(400).json({ success: false, message: 'License registration plate is required.' });
+      }
+
+      const formattedPlate = plate.toUpperCase().trim().replace(/[^A-Z0-9]/g, '');
+
+      // Return mock data depending on registration plate suffix/keywords
+      let vehicleDetails = {
+        owner: 'Arjun Sharma',
+        regNo: formattedPlate,
+        vehicleClass: 'Motor Car (LMV)',
+        makerModel: 'Maruti Swift Dzire',
+        fuelType: 'Petrol',
+        color: 'White',
+        regAuthority: 'MH-12 Pune RTO',
+        regDate: '12 Mar 2021',
+        insuranceUpto: '12 Mar 2027',
+        pucUpto: '05 Jan 2027',
+        financer: 'HDFC Bank Ltd.',
+        blacklistStatus: 'Clear',
+        challanDetails: '1 pending (₹500)'
+      };
+
+      if (formattedPlate.includes('BLACK') || formattedPlate.endsWith('8')) {
+        vehicleDetails = {
+          owner: 'Rajesh Malhotra',
+          regNo: formattedPlate,
+          vehicleClass: 'SUV (LMV)',
+          makerModel: 'Mahindra Thar',
+          fuelType: 'Diesel',
+          color: 'Red',
+          regAuthority: 'HR-26 Gurgaon RTO',
+          regDate: '04 Apr 2022',
+          insuranceUpto: '12 Aug 2026',
+          pucUpto: '30 Nov 2026',
+          financer: 'Kotak Mahindra',
+          blacklistStatus: 'Blacklisted (Stolen alert)',
+          challanDetails: '4 pending (₹3000)'
+        };
+      } else if (formattedPlate.endsWith('9') || formattedPlate.includes('EXPIRED')) {
+        vehicleDetails = {
+          owner: 'Prof. K. Verma',
+          regNo: formattedPlate,
+          vehicleClass: 'Sedan (LMV)',
+          makerModel: 'Honda Civic',
+          fuelType: 'Diesel',
+          color: 'Grey',
+          regAuthority: 'DL-01 New Delhi RTO',
+          regDate: '15 Jun 2018',
+          insuranceUpto: '15 Dec 2025', // Expired
+          pucUpto: '10 Jan 2026', // Expired
+          financer: 'SBI Car Loans',
+          blacklistStatus: 'Clear',
+          challanDetails: '0 pending'
+        };
+      } else if (!formattedPlate.endsWith('4') && !formattedPlate.includes('MH12AB1234')) {
+        // Generic fallback profile
+        vehicleDetails = {
+          owner: 'Amit Patel',
+          regNo: formattedPlate,
+          vehicleClass: 'Hatchback (LMV)',
+          makerModel: 'Hyundai i20',
+          fuelType: 'Petrol',
+          color: 'Silver',
+          regAuthority: 'KA-03 Bangalore RTO',
+          regDate: '10 May 2020',
+          insuranceUpto: '25 May 2028',
+          pucUpto: '18 Dec 2027',
+          financer: 'Self Owned',
+          blacklistStatus: 'Clear',
+          challanDetails: '0 pending'
+        };
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: vehicleDetails
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
   }
 };

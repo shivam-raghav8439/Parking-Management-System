@@ -6,6 +6,8 @@ global.mockDb = {
   users: [],
   slots: [],
   records: [],
+  registeredVehicles: [],
+  anprLogs: [],
   settings: {
     rates: DEFAULT_RATES,
     collegeName: 'Galgotias University',
@@ -76,5 +78,37 @@ export function seedMockDb() {
       operator: { _id: 'mock_admin_id', name: 'Campus Admin', email: 'admin@campus.edu', role: 'admin' },
       timestamp: new Date()
     });
+  }
+
+  // 4. Seed Registered Vehicles if empty
+  if (global.mockDb.registeredVehicles.length === 0) {
+    global.mockDb.registeredVehicles.push(
+      {
+        _id: 'mock_reg_1',
+        plate: 'MH12AB1234',
+        ownerName: 'Aditya Verma',
+        ownerType: 'Student',
+        vehicleType: 'Car',
+        mobile: '9876543210',
+        photo: '',
+        isActive: true,
+        registeredAt: new Date(),
+        lastSeen: null,
+        totalVisits: 0
+      },
+      {
+        _id: 'mock_reg_2',
+        plate: 'DL01XX9999',
+        ownerName: 'Dr. Shailesh Kumar',
+        ownerType: 'Faculty',
+        vehicleType: 'Car',
+        mobile: '9876543212',
+        photo: '',
+        isActive: true,
+        registeredAt: new Date(),
+        lastSeen: null,
+        totalVisits: 0
+      }
+    );
   }
 }

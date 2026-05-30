@@ -214,6 +214,57 @@ const initMockDB = () => {
     ];
     localStorage.setItem('college_parking_activity', JSON.stringify(activity));
   }
+
+  // Initialize registered vehicles whitelist in sandbox
+  let regVehicles = JSON.parse(localStorage.getItem('college_parking_registered_vehicles'));
+  if (!regVehicles) {
+    regVehicles = [
+      {
+        id: 'mock_reg_1',
+        plate: 'MH12AB1234',
+        ownerName: 'Aditya Verma',
+        ownerType: 'Student',
+        vehicleType: 'Car',
+        mobile: '9876543210',
+        photo: '',
+        isActive: true,
+        registeredAt: new Date().toISOString(),
+        lastSeen: null,
+        totalVisits: 0
+      },
+      {
+        id: 'mock_reg_2',
+        plate: 'DL01XX9999',
+        ownerName: 'Dr. Shailesh Kumar',
+        ownerType: 'Faculty',
+        vehicleType: 'Car',
+        mobile: '9876543212',
+        photo: '',
+        isActive: true,
+        registeredAt: new Date().toISOString(),
+        lastSeen: null,
+        totalVisits: 0
+      }
+    ];
+    localStorage.setItem('college_parking_registered_vehicles', JSON.stringify(regVehicles));
+  }
+
+  // Initialize ANPR scanning logs in sandbox
+  let anprLogs = JSON.parse(localStorage.getItem('college_parking_anpr_logs'));
+  if (!anprLogs) {
+    anprLogs = [
+      {
+        id: 'log_1',
+        timestamp: new Date(Date.now() - 3600000).toISOString(),
+        plate: 'MH12AB1234',
+        confidence: 94,
+        result: 'success',
+        message: 'Auto entry check-in successful. Allocated slot: A-6',
+        slotNumber: 'A-6'
+      }
+    ];
+    localStorage.setItem('college_parking_anpr_logs', JSON.stringify(anprLogs));
+  }
 };
 
 initMockDB();
@@ -299,12 +350,16 @@ const mockApi = {
       zoneOccupancy[z.id] = zoneSlots.length > 0 ? Math.round((zoneOccupied / zoneSlots.length) * 100) : 0;
     });
 
+    const anprToday = records
+      .filter(r => r.isAutoEntry === true && new Date(r.entryTime) >= today).length;
+
     return {
       totalSlots,
       availableSlots,
       occupiedSlots,
       todayRevenue,
-      zoneOccupancy
+      zoneOccupancy,
+      anprToday
     };
   },
 
@@ -727,5 +782,316 @@ export const parkingApi = {
     handleApiCall(() => client.put('/settings', data), () => mockApi.updateSettings(data)),
 
   getAuditLogs: (params) =>
-    handleApiCall(() => client.get('/stats/logs', { params }), () => mockApi.getAuditLogs(params))
+    handleApiCall(() => client.get('/stats/logs', { params }), () => mockApi.getAuditLogs(params)),
+
+  getANPRStatus: () =>
+    handleApiCall(() => client.get('/anpr/status'), mockApi.getANPRStatus),
+
+  recognizeANPR: (image) =>
+    handleApiCall(() => client.post('/anpr/recognize', { image }), () => mockApi.recognizeANPR(image)),
+
+  autoEntryANPR: (plate) =>
+    handleApiCall(() => client.post('/anpr/auto-entry', { plate }), () => mockApi.autoEntryANPR(plate)),
+
+  getRegisteredVehicles: (params) =>
+    handleApiCall(() => client.get('/anpr/vehicles', { params }), () => mockApi.getRegisteredVehicles(params)),
+
+  registerVehicle: (data) =>
+    handleApiCall(() => client.post('/anpr/vehicles', data), () => mockApi.registerVehicle(data)),
+
+  deleteRegisteredVehicle: (id) =>
+    handleApiCall(() => client.delete(`/anpr/vehicles/${id}`), () => mockApi.deleteRegisteredVehicle(id)),
+
+  getVehicleDetails: (plate) =>
+    handleApiCall(() => client.post('/vehicle/details', { plate }), () => mockApi.getVehicleDetails(plate))
+};
+
+// Append missing mock functions to mockApi object
+mockApi.getANPRStatus = () => {
+  return {
+    success: true,
+    cameraConnected: true,
+    status: 'Online',
+    details: 'Mock camera active (Local Storage Sandbox Mode)'
+  };
+};
+
+mockApi.recognizeANPR = (image) => {
+  const list = JSON.parse(localStorage.getItem('college_parking_registered_vehicles')) || [];
+  let plate = 'MH12AB1234';
+  if (list.length > 0) {
+    if (Math.random() > 0.3) {
+      plate = list[Math.floor(Math.random() * list.length)].plate;
+    } else {
+      plate = 'KA05KB' + Math.floor(1000 + Math.random() * 9000);
+    }
+  }
+  return {
+    success: true,
+    plate,
+    confidence: Math.floor(Math.random() * 15) + 82
+  };
+};
+
+mockApi.autoEntryANPR = (plate) => {
+  const formattedPlate = plate.toUpperCase().trim();
+  const list = JSON.parse(localStorage.getItem('college_parking_registered_vehicles')) || [];
+  const vehicle = list.find(v => v.plate === formattedPlate && v.isActive);
+
+  let logs = JSON.parse(localStorage.getItem('college_parking_anpr_logs')) || [];
+
+  if (!vehicle) {
+    logs.unshift({
+      id: `mock_anpr_log_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      plate: formattedPlate,
+      confidence: 90,
+      result: 'failed',
+      message: 'Vehicle not registered in pre-registration whitelist',
+      slotNumber: ''
+    });
+    localStorage.setItem('college_parking_anpr_logs', JSON.stringify(logs.slice(0, 50)));
+
+    return { success: false, message: 'Vehicle not registered' };
+  }
+
+  const records = JSON.parse(localStorage.getItem('college_parking_records')) || [];
+  const active = records.find(r => r.plate === formattedPlate && r.status === 'active');
+  if (active) {
+    logs.unshift({
+      id: `mock_anpr_log_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      plate: formattedPlate,
+      confidence: 90,
+      result: 'failed',
+      message: `Denied auto-entry: Vehicle already parked in slot ${active.slotNumber}`,
+      slotNumber: ''
+    });
+    localStorage.setItem('college_parking_anpr_logs', JSON.stringify(logs.slice(0, 50)));
+    return { success: false, message: `Vehicle already inside: Slot ${active.slotNumber}` };
+  }
+
+  const slots = JSON.parse(localStorage.getItem('college_parking_slots')) || [];
+  let targetZone = 'A';
+  if (vehicle.vehicleType === 'Car') targetZone = 'A';
+  else if (vehicle.vehicleType === 'Bike') targetZone = 'B';
+  else if (vehicle.ownerType === 'Faculty') targetZone = 'C';
+  else targetZone = 'D';
+
+  const freeSlot = slots.find(s => 
+    s.zoneId === targetZone && 
+    (s.status === 'available' || s.status === 'reserved')
+  );
+
+  if (!freeSlot) {
+    return { success: false, message: `No available slots in Zone ${targetZone}` };
+  }
+
+  freeSlot.status = 'occupied';
+  freeSlot.plate = formattedPlate;
+  freeSlot.ownerInitials = vehicle.ownerName
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .substring(0, 2);
+
+  const newRecord = {
+    id: `rec_${Date.now()}`,
+    plate: formattedPlate,
+    ownerName: vehicle.ownerName,
+    vehicleType: vehicle.vehicleType,
+    ownerType: vehicle.ownerType,
+    zonePreference: 'Auto',
+    mobileNumber: vehicle.mobile || '',
+    slotNumber: freeSlot.slotNumber,
+    entryTime: new Date().toISOString(),
+    exitTime: null,
+    fee: null,
+    durationMinutes: null,
+    status: 'active',
+    isAutoEntry: true
+  };
+
+  records.push(newRecord);
+
+  let activity = JSON.parse(localStorage.getItem('college_parking_activity')) || [];
+  activity.unshift({
+    id: `act_${Date.now()}`,
+    type: 'entry',
+    plate: formattedPlate,
+    slotNumber: freeSlot.slotNumber,
+    timestamp: newRecord.entryTime
+  });
+
+  vehicle.totalVisits += 1;
+  vehicle.lastSeen = newRecord.entryTime;
+
+  logs.unshift({
+    id: `mock_anpr_log_${Date.now()}`,
+    timestamp: newRecord.entryTime,
+    plate: formattedPlate,
+    confidence: 95,
+    result: 'success',
+    message: `Auto entry check-in successful. Allocated slot: ${freeSlot.slotNumber}`,
+    slotNumber: freeSlot.slotNumber
+  });
+
+  localStorage.setItem('college_parking_records', JSON.stringify(records));
+  localStorage.setItem('college_parking_slots', JSON.stringify(slots));
+  localStorage.setItem('college_parking_activity', JSON.stringify(activity.slice(0, 50)));
+  localStorage.setItem('college_parking_registered_vehicles', JSON.stringify(list));
+  localStorage.setItem('college_parking_anpr_logs', JSON.stringify(logs.slice(0, 50)));
+
+  return {
+    success: true,
+    slot: freeSlot.slotNumber,
+    message: 'Gate Opened. Auto-entry complete.',
+    record: newRecord
+  };
+};
+
+mockApi.getRegisteredVehicles = (params = {}) => {
+  let list = JSON.parse(localStorage.getItem('college_parking_registered_vehicles')) || [];
+  const logs = JSON.parse(localStorage.getItem('college_parking_anpr_logs')) || [];
+
+  if (params.search) {
+    const q = params.search.toLowerCase();
+    list = list.filter(v => v.plate.toLowerCase().includes(q) || v.ownerName.toLowerCase().includes(q) || (v.mobile && v.mobile.includes(q)));
+  }
+  if (params.ownerType && params.ownerType !== 'All') {
+    list = list.filter(v => v.ownerType === params.ownerType);
+  }
+  if (params.vehicleType && params.vehicleType !== 'All') {
+    list = list.filter(v => v.vehicleType === params.vehicleType);
+  }
+
+  list.sort((a,b) => new Date(b.registeredAt) - new Date(a.registeredAt));
+
+  const page = parseInt(params.page) || 1;
+  const limit = parseInt(params.limit) || 10;
+  const totalCount = list.length;
+  const paginated = list.slice((page - 1) * limit, page * limit);
+
+  return {
+    success: true,
+    vehicles: paginated,
+    recentLogs: logs,
+    totalCount,
+    totalPages: Math.ceil(totalCount / limit),
+    currentPage: page
+  };
+};
+
+mockApi.registerVehicle = (data) => {
+  const list = JSON.parse(localStorage.getItem('college_parking_registered_vehicles')) || [];
+  const plate = data.plate.toUpperCase().trim();
+
+  if (list.some(v => v.plate === plate)) {
+    throw new Error(`Plate ${plate} is already registered.`);
+  }
+
+  const newVehicle = {
+    id: `mock_reg_${Date.now()}`,
+    plate,
+    ownerName: data.ownerName,
+    ownerType: data.ownerType,
+    vehicleType: data.vehicleType,
+    mobile: data.mobile || '',
+    photo: data.photo || '',
+    isActive: true,
+    registeredAt: new Date().toISOString(),
+    lastSeen: null,
+    totalVisits: 0
+  };
+
+  list.push(newVehicle);
+  localStorage.setItem('college_parking_registered_vehicles', JSON.stringify(list));
+  return newVehicle;
+};
+
+mockApi.deleteRegisteredVehicle = (id) => {
+  let list = JSON.parse(localStorage.getItem('college_parking_registered_vehicles')) || [];
+  const index = list.findIndex(v => v.id === id);
+  if (index === -1) {
+    throw new Error('Vehicle registration record not found.');
+  }
+  list.splice(index, 1);
+  localStorage.setItem('college_parking_registered_vehicles', JSON.stringify(list));
+  return { success: true };
+};
+
+mockApi.getVehicleDetails = (plate) => {
+  const formattedPlate = plate.toUpperCase().trim().replace(/[^A-Z0-9]/g, '');
+
+  let vehicleDetails = {
+    owner: 'Arjun Sharma',
+    regNo: formattedPlate,
+    vehicleClass: 'Motor Car (LMV)',
+    makerModel: 'Maruti Swift Dzire',
+    fuelType: 'Petrol',
+    color: 'White',
+    regAuthority: 'MH-12 Pune RTO',
+    regDate: '12 Mar 2021',
+    insuranceUpto: '12 Mar 2027',
+    pucUpto: '05 Jan 2027',
+    financer: 'HDFC Bank Ltd.',
+    blacklistStatus: 'Clear',
+    challanDetails: '1 pending (₹500)'
+  };
+
+  if (formattedPlate.includes('BLACK') || formattedPlate.endsWith('8')) {
+    vehicleDetails = {
+      owner: 'Rajesh Malhotra',
+      regNo: formattedPlate,
+      vehicleClass: 'SUV (LMV)',
+      makerModel: 'Mahindra Thar',
+      fuelType: 'Diesel',
+      color: 'Red',
+      regAuthority: 'HR-26 Gurgaon RTO',
+      regDate: '04 Apr 2022',
+      insuranceUpto: '12 Aug 2026',
+      pucUpto: '30 Nov 2026',
+      financer: 'Kotak Mahindra',
+      blacklistStatus: 'Blacklisted (Stolen alert)',
+      challanDetails: '4 pending (₹3000)'
+    };
+  } else if (formattedPlate.endsWith('9') || formattedPlate.includes('EXPIRED')) {
+    vehicleDetails = {
+      owner: 'Prof. K. Verma',
+      regNo: formattedPlate,
+      vehicleClass: 'Sedan (LMV)',
+      makerModel: 'Honda Civic',
+      fuelType: 'Diesel',
+      color: 'Grey',
+      regAuthority: 'DL-01 New Delhi RTO',
+      regDate: '15 Jun 2018',
+      insuranceUpto: '15 Dec 2025', // Expired
+      pucUpto: '10 Jan 2026', // Expired
+      financer: 'SBI Car Loans',
+      blacklistStatus: 'Clear',
+      challanDetails: '0 pending'
+    };
+  } else if (!formattedPlate.endsWith('4') && !formattedPlate.includes('MH12AB1234')) {
+    vehicleDetails = {
+      owner: 'Amit Patel',
+      regNo: formattedPlate,
+      vehicleClass: 'Hatchback (LMV)',
+      makerModel: 'Hyundai i20',
+      fuelType: 'Petrol',
+      color: 'Silver',
+      regAuthority: 'KA-03 Bangalore RTO',
+      regDate: '10 May 2020',
+      insuranceUpto: '25 May 2028',
+      pucUpto: '18 Dec 2027',
+      financer: 'Self Owned',
+      blacklistStatus: 'Clear',
+      challanDetails: '0 pending'
+    };
+  }
+
+  return {
+    success: true,
+    data: vehicleDetails
+  };
 };

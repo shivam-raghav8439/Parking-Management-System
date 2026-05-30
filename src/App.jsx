@@ -11,6 +11,8 @@ import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import Anpr from './pages/Anpr';
+import RegisterVehicle from './pages/RegisterVehicle';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -91,6 +93,8 @@ export default function App() {
             <Route path="/history" element={<RequireAuth><History /></RequireAuth>} />
             <Route path="/reports" element={<RequireAuth><Reports /></RequireAuth>} />
             <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
+            <Route path="/anpr" element={<RequireAuth><Anpr /></RequireAuth>} />
+            <Route path="/register-vehicle" element={<RequireAuth><RegisterVehicle /></RequireAuth>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </main>

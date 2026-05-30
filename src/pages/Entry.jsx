@@ -4,6 +4,7 @@ import { VEHICLE_TYPES, OWNER_TYPES, DEFAULT_SETTINGS } from '../utils/constants
 import { parkingApi } from '../api/parkingApi';
 import ReceiptModal from '../components/ReceiptModal';
 import Badge from '../components/Badge';
+import VehicleDetailsCard from '../components/VehicleDetailsCard';
 import { Loader } from 'lucide-react';
 import { formatDateTime, formatRelativeTime } from '../utils/formatTime';
 
@@ -20,6 +21,10 @@ export default function Entry() {
   // Custom settings state to display live price rates
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
 
+  // Vahan details and loading states
+  const [vahanDetails, setVahanDetails] = useState(null);
+  const [isLoadingVahan, setIsLoadingVahan] = useState(false);
+
   const { data: activeRecords, isLoading: listLoading } = useActiveRecords();
   const createEntryMutation = useCreateEntry();
 
@@ -33,6 +38,45 @@ export default function Entry() {
     };
     fetchSettings();
   }, []);
+
+  // Trigger Vahan lookup automatically on 10 characters
+  useEffect(() => {
+    const fetchVahanData = async () => {
+      if (plate.length === 10) {
+        setIsLoadingVahan(true);
+        try {
+          const res = await parkingApi.getVehicleDetails(plate);
+          if (res?.success && res?.data) {
+            setVahanDetails(res.data);
+            
+            // Auto populate owner name if not entered yet
+            if (res.data.owner && res.data.owner !== 'N/A') {
+              setOwnerName(res.data.owner);
+            }
+            
+            // Auto select vehicle type
+            const vClass = res.data.vehicleClass.toLowerCase();
+            if (vClass.includes('two wheeler') || vClass.includes('bike') || vClass.includes('motorcycle') || vClass.includes('scooter')) {
+              setVehicleType('Bike');
+            } else if (vClass.includes('bus') || vClass.includes('heavy')) {
+              setVehicleType('Bus');
+            } else if (vClass.includes('cycle') || vClass.includes('bicycle')) {
+              setVehicleType('Bicycle');
+            } else {
+              setVehicleType('Car');
+            }
+          }
+        } catch (err) {
+          console.warn("Vahan auto lookup failed:", err.message);
+        } finally {
+          setIsLoadingVahan(false);
+        }
+      } else {
+        setVahanDetails(null);
+      }
+    };
+    fetchVahanData();
+  }, [plate]);
 
   const handlePlateChange = (e) => {
     // Live filter: capitalize, strip non-alphanumeric, max length 10
@@ -49,6 +93,40 @@ export default function Entry() {
     if (!ownerName.trim()) {
       alert('Please enter the owner name.');
       return;
+    }
+
+    // Apply Vahan compliance verification checks on manual Entry submission
+    if (vahanDetails) {
+      // 1. Blacklist check (BLOCK)
+      const isBlacklisted = vahanDetails.blacklistStatus && !vahanDetails.blacklistStatus.toLowerCase().includes('clear');
+      if (isBlacklisted) {
+        alert(`❌ ACCESS BLOCKED: Vehicle with plate ${plate} is blacklisted (${vahanDetails.blacklistStatus})! Entry is prohibited.`);
+        return;
+      }
+
+      // 2. Insurance / PUC validity (Operator Override prompt)
+      const isInsuranceExpired = vahanDetails.insuranceUpto && vahanDetails.insuranceUpto !== 'N/A' && new Date(vahanDetails.insuranceUpto) < new Date();
+      const isPucExpired = vahanDetails.pucUpto && vahanDetails.pucUpto !== 'N/A' && new Date(vahanDetails.pucUpto) < new Date();
+
+      if (isInsuranceExpired || isPucExpired) {
+        const reason = isInsuranceExpired && isPucExpired 
+          ? 'Insurance & PUC are expired' 
+          : isInsuranceExpired 
+            ? 'Insurance is expired' 
+            : 'PUC is expired';
+        
+        const confirmOverride = window.confirm(`⚠️ COMPLIANCE ALERT: ${reason}!\nDo you have authorized operator permission to override this warning and allow entry manually?`);
+        if (!confirmOverride) {
+          toast.error("Entry registration cancelled due to compliance failures.");
+          return;
+        }
+      }
+
+      // 3. Pending Challans warning notice
+      const hasChallans = vahanDetails.challanDetails && !vahanDetails.challanDetails.toLowerCase().includes('0 pending') && !vahanDetails.challanDetails.toLowerCase().includes('no pending');
+      if (hasChallans) {
+        toast.error(`⚠️ Warning: Outstanding challans pending (${vahanDetails.challanDetails}).`);
+      }
     }
 
     createEntryMutation.mutate({
@@ -69,6 +147,7 @@ export default function Entry() {
         setVehicleType('Car');
         setOwnerType('Student');
         setZonePreference('Auto');
+        setVahanDetails(null);
       }
     });
   };
@@ -114,6 +193,19 @@ export default function Entry() {
                   </div>
                 </div>
                 <p className="text-[10px] text-slate-400 dark:text-slate-500">Must be alphanumeric, e.g. GA02X8877</p>
+                
+                {isLoadingVahan && (
+                  <div className="mt-2 text-[10px] text-primary-500 font-semibold flex items-center gap-1.5 animate-pulse">
+                    <Loader className="w-3.5 h-3.5 animate-spin" />
+                    <span>Fetching Government Vahan RC profile...</span>
+                  </div>
+                )}
+
+                {vahanDetails && (
+                  <div className="mt-4 pt-1 w-full max-w-sm">
+                    <VehicleDetailsCard details={vahanDetails} />
+                  </div>
+                )}
               </div>
 
               {/* Owner Name */}

@@ -66,6 +66,11 @@ export const getSummary = async (req, res, next) => {
       zoneOccupancy[z] = zoneTotal > 0 ? Math.round((zoneOccupied / zoneTotal) * 100) : 0;
     }
 
+    const anprToday = await Record.countDocuments({
+      isAutoEntry: true,
+      entryTime: { $gte: todayStart }
+    });
+
     res.status(200).json({
       success: true,
       totalSlots,
@@ -74,7 +79,8 @@ export const getSummary = async (req, res, next) => {
       reservedSlots,
       todayRevenue,
       weekRevenue,
-      zoneOccupancy
+      zoneOccupancy,
+      anprToday
     });
   } catch (error) {
     next(error);

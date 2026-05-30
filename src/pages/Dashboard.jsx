@@ -22,7 +22,8 @@ import {
   DollarSign, 
   ArrowDownLeft, 
   ArrowUpRight,
-  TrendingUp
+  TrendingUp,
+  Camera
 } from 'lucide-react';
 import { formatRelativeTime } from '../utils/formatTime';
 
@@ -44,7 +45,8 @@ export default function Dashboard() {
   if (statsLoading || activityLoading) {
     return (
       <div className="space-y-6 animate-fade-in">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+          <CardSkeleton />
           <CardSkeleton />
           <CardSkeleton />
           <CardSkeleton />
@@ -77,7 +79,7 @@ export default function Dashboard() {
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
         <StatCard
           title="Total Slots"
           value={stats?.totalSlots ?? 140}
@@ -107,6 +109,13 @@ export default function Dashboard() {
           trend="+18.4%"
           trendType="up"
           description="Settled parking fees collected today"
+        />
+        <StatCard
+          title="ANPR Today"
+          value={stats?.anprToday ?? 0}
+          icon={Camera}
+          color="violet"
+          description="Vehicles auto-entered via gate camera"
         />
       </div>
 

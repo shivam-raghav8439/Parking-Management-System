@@ -7,7 +7,9 @@ import {
   Map,
   History,
   BarChart3,
-  Settings
+  Settings,
+  Camera,
+  ShieldCheck
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -15,6 +17,8 @@ export default function Sidebar() {
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Entry Desk', path: '/entry', icon: LogIn },
     { name: 'Exit Checkpoint', path: '/exit', icon: LogOut },
+    { name: 'Live Gate Camera', path: '/anpr', icon: Camera },
+    { name: 'Vehicle Registry', path: '/register-vehicle', icon: ShieldCheck },
     { name: 'Parking Map', path: '/map', icon: Map },
     { name: 'History Logs', path: '/history', icon: History },
     { name: 'Reports', path: '/reports', icon: BarChart3 },

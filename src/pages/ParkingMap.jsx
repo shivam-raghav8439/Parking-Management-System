@@ -10,6 +10,7 @@ import { SlotGridSkeleton } from '../components/Loader';
 import Badge from '../components/Badge';
 import ConfirmModal from '../components/ConfirmModal';
 import ReceiptModal from '../components/ReceiptModal';
+import VehicleDetailsCard from '../components/VehicleDetailsCard';
 import { Info, User, Clock, ShieldAlert, Key, LogOut } from 'lucide-react';
 
 export default function ParkingMap() {
@@ -36,16 +37,36 @@ export default function ParkingMap() {
     fetchSettings();
   }, []);
 
+  // Vahan details and loader states for slot inspector
+  const [vahanDetails, setVahanDetails] = useState(null);
+  const [isLoadingVahan, setIsLoadingVahan] = useState(false);
+
   // Fetch full details of record occupying selected slot
   const handleSlotClick = async (slot) => {
     setSelectedSlot(slot);
+    setVahanDetails(null);
     if (slot.status === SLOT_STATUS.OCCUPIED) {
+      setIsLoadingVahan(true);
       try {
         const records = await parkingApi.getActiveRecords();
         const detail = records.find(r => r.slotNumber === slot.slotNumber);
         setSlotDetails(detail || null);
+
+        // Fetch government details for active plate
+        if (detail && detail.plate) {
+          try {
+            const vahanRes = await parkingApi.getVehicleDetails(detail.plate);
+            if (vahanRes?.success && vahanRes?.data) {
+              setVahanDetails(vahanRes.data);
+            }
+          } catch (vahanErr) {
+            console.warn("Vahan fetch failed for active slot:", vahanErr);
+          }
+        }
       } catch (err) {
         setSlotDetails(null);
+      } finally {
+        setIsLoadingVahan(false);
       }
     } else {
       setSlotDetails(null);
@@ -208,6 +229,19 @@ export default function ParkingMap() {
                         <span>₹{calculateFee(slotDetails.entryTime, new Date(), settings.rates[slotDetails.vehicleType] || 10).fee}.00</span>
                       </div>
                     </div>
+
+                    {isLoadingVahan && (
+                      <div className="py-2 text-[10px] text-primary-500 font-semibold flex items-center justify-center gap-1.5 animate-pulse">
+                        <span className="w-3.5 h-3.5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></span>
+                        <span>Loading Vahan RC details...</span>
+                      </div>
+                    )}
+
+                    {vahanDetails && (
+                      <div className="pt-3 border-t border-slate-100 dark:border-slate-805/50">
+                        <VehicleDetailsCard details={vahanDetails} />
+                      </div>
+                    )}
                   </div>
 
                   {/* Checkout Button */}

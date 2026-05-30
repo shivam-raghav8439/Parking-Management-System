@@ -240,6 +240,8 @@ export default function Navbar() {
               { name: 'Dashboard', path: '/dashboard' },
               { name: 'Entry Desk', path: '/entry' },
               { name: 'Exit Checkpoint', path: '/exit' },
+              { name: 'Live Gate Camera', path: '/anpr' },
+              { name: 'Vehicle Registry', path: '/register-vehicle' },
               { name: 'Parking Map', path: '/map' },
               { name: 'History Logs', path: '/history' },
               { name: 'Reports', path: '/reports' },

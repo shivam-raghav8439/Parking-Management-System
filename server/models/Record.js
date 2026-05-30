@@ -14,6 +14,7 @@ const recordSchema = new mongoose.Schema({
   durationMinutes: { type: Number, default: null },
   fee: { type: Number, default: 0 },
   status: { type: String, enum: ['active', 'exited'], default: 'active' },
+  isAutoEntry: { type: Boolean, default: false },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
 

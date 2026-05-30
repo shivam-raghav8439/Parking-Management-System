@@ -16,6 +16,8 @@ import slotRouter from './routes/slots.js';
 import statsRouter from './routes/stats.js';
 import reportsRouter from './routes/reports.js';
 import settingsRouter from './routes/settings.js';
+import anprRouter from './routes/anpr.js';
+import vehicleRouter from './routes/vehicle.js';
 
 // 1. Initialize environment configurations
 dotenv.config();
@@ -25,6 +27,8 @@ import './models/User.js';
 import './models/Slot.js';
 import './models/Record.js';
 import './models/Settings.js';
+import './models/RegisteredVehicle.js';
+import './models/AnprLog.js';
 
 // 2. Connect to MongoDB
 connectDB();
@@ -66,6 +70,8 @@ app.use('/api/slots', slotRouter);
 app.use('/api/stats', statsRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/settings', settingsRouter);
+app.use('/api/anpr', anprRouter);
+app.use('/api/vehicle', vehicleRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
