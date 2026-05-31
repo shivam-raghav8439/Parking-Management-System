@@ -22,6 +22,7 @@ import anprRouter from './routes/anpr.js';
 import vehicleRouter from './routes/vehicle.js';
 import userRouter from './routes/users.js';
 import bookingRouter from './routes/bookings.js';
+import aiRouter from './routes/ai.js';
 import passport from 'passport';
 import session from 'express-session';
 import configurePassport from './config/passport.js';
@@ -107,6 +108,7 @@ app.use('/api/anpr', anprRouter);
 app.use('/api/vehicle', vehicleRouter);
 app.use('/api/users', userRouter);
 app.use('/api/bookings', bookingRouter);
+app.use('/api/ai', aiRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

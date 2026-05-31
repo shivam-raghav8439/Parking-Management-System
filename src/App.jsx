@@ -6,6 +6,8 @@ import BottomNavigation from './components/BottomNavigation';
 import Spinner from './components/Loader';
 import { resetInactivityTimer, logout } from './api/client';
 import ProtectedRoute from './components/ProtectedRoute';
+import InstallPrompt from './components/InstallPrompt';
+import AiChatbot from './components/AiChatbot';
 
 // Lazy load route pages
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -222,6 +224,8 @@ export default function App() {
           </div>
         </div>
       )}
+      <InstallPrompt />
+      {isAuthenticated && <AiChatbot />}
     </div>
   );
 }
