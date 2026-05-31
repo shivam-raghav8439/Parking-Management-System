@@ -61,10 +61,15 @@ app.use(helmet());
 app.use(express.json());
 
 // Set up CORS
-const allowedOrigin = process.env.FRONTEND_URL || 'http://localhost:5173';
 app.use(cors({
-  origin: allowedOrigin,
-  credentials: true
+  origin: [
+    'https://galgotiasparkingmanagement.netlify.app',
+    'http://localhost:5173',
+    'http://localhost:3000'
+  ],
+  credentials: true,
+  methods: ['GET','POST','PUT','DELETE','PATCH','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization']
 }));
 
 // Request logger in development
@@ -115,6 +120,14 @@ app.get('/health', (req, res) => {
   res.status(200).json({ success: true, message: 'Campus Parking System Backend is operational.' });
 });
 
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    message: 'SmartPark API is running',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Root welcome endpoint
 app.get('/', (req, res) => {
   res.status(200).json({ 
@@ -137,7 +150,7 @@ app.use(errorHandler);
 
 // 7. Start Listener
 const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
 });
 
@@ -147,3 +160,13 @@ process.on('unhandledRejection', (err, promise) => {
   // Close server & exit process
   server.close(() => process.exit(1));
 });
+
+// DEPLOYMENT STEPS:
+// 1. Push this code to GitHub repository
+// 2. Go to railway.app → Login with GitHub
+// 3. New Project → Deploy from GitHub repo
+// 4. Select your backend folder/repo
+// 5. Add all environment variables in Railway dashboard
+// 6. Railway will auto-deploy and give you a URL like:
+//    https://smartpark-backend.up.railway.app
+// 7. Copy that URL → use in frontend .env
