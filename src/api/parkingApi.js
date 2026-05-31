@@ -356,7 +356,8 @@ const mockApi = {
       user.mobileOtpExpires = null;
       user.otpAttempts = 0;
     } else {
-      user = users.find(u => u.email === email.toLowerCase());
+      const cleanEmail = email ? email.trim().toLowerCase() : '';
+      user = users.find(u => u.email === cleanEmail);
       if (!user) {
         const err = new Error('Invalid email or password.');
         err.response = { status: 401, data: { message: 'Invalid email or password.' } };
@@ -413,7 +414,8 @@ const mockApi = {
 
   register: ({ name, email, role, mobile, password }) => {
     let users = JSON.parse(localStorage.getItem('college_parking_users')) || [];
-    if (users.some(u => u.email === email.toLowerCase())) {
+    const cleanEmail = email ? email.trim().toLowerCase() : '';
+    if (users.some(u => u.email === cleanEmail)) {
       throw new Error('User already exists');
     }
     const computedRole = users.length === 0 ? 'admin' : (role || 'user');
@@ -423,7 +425,7 @@ const mockApi = {
     const user = {
       _id: `mock_user_${Date.now()}`,
       name,
-      email: email.toLowerCase(),
+      email: cleanEmail,
       role: computedRole,
       password: password || 'Password123',
       status: 'active',
@@ -497,7 +499,8 @@ const mockApi = {
 
   resendVerification: ({ email }) => {
     let users = JSON.parse(localStorage.getItem('college_parking_users')) || [];
-    const user = users.find(u => u.email === email.toLowerCase());
+    const cleanEmail = email ? email.trim().toLowerCase() : '';
+    const user = users.find(u => u.email === cleanEmail);
     if (!user) {
       throw new Error('User not found in memory.');
     }
@@ -596,7 +599,8 @@ const mockApi = {
 
   forgotPassword: ({ email }) => {
     let users = JSON.parse(localStorage.getItem('college_parking_users')) || [];
-    const user = users.find(u => u.email === email.toLowerCase());
+    const cleanEmail = email ? email.trim().toLowerCase() : '';
+    const user = users.find(u => u.email === cleanEmail);
     if (!user) {
       throw new Error('User not found in memory.');
     }

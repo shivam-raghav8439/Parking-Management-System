@@ -46,8 +46,9 @@ export const register = async (req, res, next) => {
 
   try {
     const { name, email, password, mobile } = req.body;
+    const cleanEmail = (email || '').trim().toLowerCase();
 
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ email: cleanEmail });
     if (userExists) {
       return res.status(400).json({ 
         success: false, 
@@ -91,7 +92,7 @@ export const register = async (req, res, next) => {
 
     const user = await User.create({
       name,
-      email,
+      email: cleanEmail,
       password,
       role,
       status: 'active',
@@ -198,7 +199,17 @@ export const login = async (req, res, next) => {
       user.mobileOtpExpires = null;
       user.otpAttempts = 0;
     } else {
-      user = await User.findOne({ email });
+      const cleanEmail = (email || '').trim().toLowerCase();
+      try {
+        user = await User.findOne({ email: cleanEmail });
+      } catch (dbError) {
+        console.error("Database connection/query failed during login:", dbError);
+        return res.status(500).json({
+          success: false,
+          message: 'Server error: Database connection or query failed. Please contact administrator.'
+        });
+      }
+
       if (!user) {
         return res.status(401).json({ 
           success: false, 
@@ -312,6 +323,7 @@ export const login = async (req, res, next) => {
       }
     });
   } catch (error) {
+    console.error("Login API Error:", error);
     next(error);
   }
 };
@@ -401,7 +413,8 @@ export const resendVerification = async (req, res, next) => {
 
   try {
     const { email } = req.body;
-    const user = await User.findOne({ email });
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const user = await User.findOne({ email: cleanEmail });
 
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found.' });
@@ -572,7 +585,8 @@ export const forgotPassword = async (req, res, next) => {
 
   try {
     const { email } = req.body;
-    const user = await User.findOne({ email });
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const user = await User.findOne({ email: cleanEmail });
     if (!user) {
       return res.status(404).json({ success: false, message: 'User with this email address does not exist.' });
     }

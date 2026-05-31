@@ -46,7 +46,8 @@ export const mockController = {
   // -------------------------------------------------------------
   register: async (req, res) => {
     const { name, email, password, role: bodyRole, mobile } = req.body;
-    const userExists = global.mockDb.users.find(u => u.email === email.toLowerCase());
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const userExists = global.mockDb.users.find(u => u.email === cleanEmail);
     if (userExists) {
       return res.status(400).json({ success: false, message: 'User already exists in memory.' });
     }
@@ -67,7 +68,7 @@ export const mockController = {
     const newUser = {
       _id: `mock_user_${Date.now()}`,
       name,
-      email: email.toLowerCase(),
+      email: cleanEmail,
       password,
       role,
       status: 'active',
@@ -115,77 +116,83 @@ export const mockController = {
   },
 
   login: async (req, res) => {
-    const { email, password, mobile, otp } = req.body;
-    let user;
+    try {
+      const { email, password, mobile, otp } = req.body;
+      let user;
 
-    if (mobile && otp) {
-      user = global.mockDb.users.find(u => u.mobile === mobile);
-      if (!user) {
-        return res.status(404).json({ success: false, message: 'No registered user matches this mobile number in memory.' });
-      }
-      if (user.mobileOtp !== otp) {
-        user.otpAttempts = (user.otpAttempts || 0) + 1;
-        if (user.otpAttempts >= 3) {
-          user.mobileOtp = null;
-          user.mobileOtpExpires = null;
-          user.otpAttempts = 0;
-          return res.status(400).json({ success: false, message: 'Too many incorrect attempts. Mobile verification locked for 30 minutes.' });
+      if (mobile && otp) {
+        user = global.mockDb.users.find(u => u.mobile === mobile);
+        if (!user) {
+          return res.status(404).json({ success: false, message: 'No registered user matches this mobile number in memory.' });
         }
-        return res.status(400).json({ success: false, message: `Invalid OTP. ${3 - user.otpAttempts} attempts remaining.` });
+        if (user.mobileOtp !== otp) {
+          user.otpAttempts = (user.otpAttempts || 0) + 1;
+          if (user.otpAttempts >= 3) {
+            user.mobileOtp = null;
+            user.mobileOtpExpires = null;
+            user.otpAttempts = 0;
+            return res.status(400).json({ success: false, message: 'Too many incorrect attempts. Mobile verification locked for 30 minutes.' });
+          }
+          return res.status(400).json({ success: false, message: `Invalid OTP. ${3 - user.otpAttempts} attempts remaining.` });
+        }
+        user.isMobileVerified = true;
+        user.mobileOtp = null;
+        user.mobileOtpExpires = null;
+        user.otpAttempts = 0;
+      } else {
+        const cleanEmail = (email || '').trim().toLowerCase();
+        user = global.mockDb.users.find(u => u.email === cleanEmail);
+        if (!user) {
+          return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+        }
+        if (user.password !== password) {
+          return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+        }
       }
-      user.isMobileVerified = true;
-      user.mobileOtp = null;
-      user.mobileOtpExpires = null;
-      user.otpAttempts = 0;
-    } else {
-      user = global.mockDb.users.find(u => u.email === email.toLowerCase());
-      if (!user) {
-        return res.status(401).json({ success: false, message: 'Invalid email or password.' });
-      }
-      if (user.password !== password) {
-        return res.status(401).json({ success: false, message: 'Invalid email or password.' });
-      }
-    }
 
-    if (user.status === 'blocked') {
-      return res.status(403).json({
-        success: false,
-        message: 'Your account has been blocked by admin.'
+      if (user.status === 'blocked') {
+        return res.status(403).json({
+          success: false,
+          message: 'Your account has been blocked by admin.'
+        });
+      }
+
+      if (user.isEmailVerified === false) {
+        const emailVerifyToken = `mock_verify_token_${Date.now()}`;
+        user.emailVerifyToken = emailVerifyToken;
+        user.emailVerifyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        
+        console.log(`\n======================================`);
+        console.log(`[MOCK EMAIL VERIFIER - RESEND] To: ${user.email}`);
+        console.log(`Verification Link: http://localhost:5173/verify-email?token=${emailVerifyToken}`);
+        console.log(`======================================\n`);
+
+        return res.status(403).json({
+          success: false,
+          step: 'verify-email',
+          message: 'Please verify your email first. A new verification link has been sent to your email.',
+          email: user.email
+        });
+      }
+
+      await logSystemActivity('LOGIN', `Logged in mock user: ${user.name} (${user.email})`, user._id);
+
+      const token = `mock_token_${user._id}`;
+      const refreshToken = `mock_refresh_${user._id}`;
+
+      user.refreshToken = refreshToken;
+      user.refreshTokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+      return res.status(200).json({
+        success: true,
+        token,
+        refreshToken,
+        user
       });
+    } catch (error) {
+      console.error("Mock Login Error:", error);
+      return res.status(500).json({ success: false, message: error.message || "Mock login exception occurred." });
     }
-
-    if (user.isEmailVerified === false) {
-      const emailVerifyToken = `mock_verify_token_${Date.now()}`;
-      user.emailVerifyToken = emailVerifyToken;
-      user.emailVerifyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-      
-      console.log(`\n======================================`);
-      console.log(`[MOCK EMAIL VERIFIER - RESEND] To: ${user.email}`);
-      console.log(`Verification Link: http://localhost:5173/verify-email?token=${emailVerifyToken}`);
-      console.log(`======================================\n`);
-
-      return res.status(403).json({
-        success: false,
-        step: 'verify-email',
-        message: 'Please verify your email first. A new verification link has been sent to your email.',
-        email: user.email
-      });
-    }
-
-    await logSystemActivity('LOGIN', `Logged in mock user: ${user.name} (${user.email})`, user._id);
-
-    const token = `mock_token_${user._id}`;
-    const refreshToken = `mock_refresh_${user._id}`;
-
-    user.refreshToken = refreshToken;
-    user.refreshTokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-    return res.status(200).json({
-      success: true,
-      token,
-      refreshToken,
-      user
-    });
   },
 
   getMe: (req, res) => {
@@ -219,7 +226,8 @@ export const mockController = {
 
   resendVerification: async (req, res) => {
     const { email } = req.body;
-    const user = global.mockDb.users.find(u => u.email === email.toLowerCase());
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const user = global.mockDb.users.find(u => u.email === cleanEmail);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found in memory.' });
     }
@@ -313,7 +321,8 @@ export const mockController = {
 
   forgotPassword: async (req, res) => {
     const { email } = req.body;
-    const user = global.mockDb.users.find(u => u.email === email.toLowerCase());
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const user = global.mockDb.users.find(u => u.email === cleanEmail);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found in memory.' });
     }
