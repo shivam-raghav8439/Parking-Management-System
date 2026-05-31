@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { parkingApi } from '../api/parkingApi';
+import client from '../api/client';
 
 const ResetPassword = () => {
   const [searchParams] = useSearchParams();
@@ -14,7 +14,7 @@ const ResetPassword = () => {
   const checkStrength = (pass) => {
     if (!pass) return { label: 'None', color: 'bg-gray-700', percentage: 0 };
     let score = 0;
-    if (pass.length >= 8) score += 1;
+    if (pass.length >= 6) score += 1;
     if (/[0-9]/.test(pass)) score += 1;
     if (/[A-Z]/.test(pass)) score += 1;
     if (/[^A-Za-z0-9]/.test(pass)) score += 1;
@@ -40,15 +40,15 @@ const ResetPassword = () => {
       toast.error('Passwords do not match.');
       return;
     }
-    if (newPassword.length < 8 || !/[0-9]/.test(newPassword) || !/[A-Z]/.test(newPassword)) {
-      toast.error('Password must be at least 8 characters, and contain at least 1 number and 1 uppercase letter.');
+    if (newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters long.');
       return;
     }
 
     setLoading(true);
     try {
-      const res = await parkingApi.resetPassword({ token, newPassword });
-      toast.success(res.message || 'Password reset successfully!');
+      const res = await client.post('/auth/reset-password', { token, newPassword });
+      toast.success(res.data.message || 'Password reset successfully!');
       navigate('/login');
     } catch (err) {
       toast.error(err.response?.data?.message || err.message || 'Failed to reset password.');
@@ -90,7 +90,7 @@ const ResetPassword = () => {
                 </label>
                 <input
                   type="password"
-                  placeholder="Min. 8 chars, 1 uppercase, 1 number"
+                  placeholder="Min. 6 characters"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl bg-gray-900 border border-gray-800 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-all text-sm"

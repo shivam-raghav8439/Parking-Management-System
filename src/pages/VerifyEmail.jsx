@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { parkingApi } from '../api/parkingApi';
+import client from '../api/client';
 
 const VerifyEmail = () => {
   const [searchParams] = useSearchParams();
@@ -19,7 +19,8 @@ const VerifyEmail = () => {
       }
 
       try {
-        const res = await parkingApi.verifyEmail(token);
+        const response = await client.get(`/auth/verify-email?token=${token}`);
+        const res = response.data;
         setStatus('success');
         setMessage(res.message || 'Email verified successfully!');
         

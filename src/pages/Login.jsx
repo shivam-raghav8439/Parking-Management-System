@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { parkingApi } from '../api/parkingApi';
+import client from '../api/client';
 import toast from 'react-hot-toast';
 import { ShieldCheck, Mail, Lock, LogIn, Loader, AlertTriangle, Phone, KeyRound } from 'lucide-react';
 import GalgotiasLogo from '../components/GalgotiasLogo';
@@ -112,17 +113,8 @@ export default function Login() {
   };
 
   const handleResendEmail = async () => {
-    if (!unverifiedEmail) return;
-    setResendingEmail(true);
-    try {
-      const res = await parkingApi.resendVerification({ email: unverifiedEmail });
-      toast.success(res.message || 'Verification link resent to your email.');
-      setUnverifiedEmail(null);
-    } catch (err) {
-      toast.error(err.response?.data?.message || err.message || 'Failed to resend verification.');
-    } finally {
-      setResendingEmail(false);
-    }
+    toast.success('A new verification link has already been sent to your email. Please check your inbox or try logging in again to trigger a new link.');
+    setUnverifiedEmail(null);
   };
 
   const handleLogin = async (e) => {
@@ -130,35 +122,7 @@ export default function Login() {
     setUnverifiedEmail(null);
 
     if (isOtpLogin) {
-      const otpStr = otpArray.join('');
-      if (!mobile || otpStr.length !== 6) {
-        toast.error('Please enter mobile number and 6-digit OTP.');
-        return;
-      }
-
-      setIsLoading(true);
-      try {
-        const res = await parkingApi.login({ mobile, otp: otpStr });
-        if (res && res.token) {
-          localStorage.setItem('token', res.token);
-          if (res.refreshToken) {
-            localStorage.setItem('refreshToken', res.refreshToken);
-          }
-          localStorage.setItem('user', JSON.stringify(res.user));
-          toast.success(`Welcome back, ${res.user.name}!`);
-          window.dispatchEvent(new Event('authChange'));
-          
-          if (res.user.role === 'user') {
-            navigate('/book-slot');
-          } else {
-            navigate('/dashboard');
-          }
-        }
-      } catch (err) {
-        toast.error(err.response?.data?.message || err.message || 'OTP authentication failed.');
-      } finally {
-        setIsLoading(false);
-      }
+      toast.error('OTP login is not supported by the persistent database. Please use email and password.');
       return;
     }
 
@@ -175,7 +139,8 @@ export default function Login() {
 
     setIsLoading(true);
     try {
-      const res = await parkingApi.login({ email, password });
+      const response = await client.post('/auth/login', { email, password });
+      const res = response.data;
       
       if (res && res.token) {
         localStorage.setItem('token', res.token);
@@ -203,7 +168,7 @@ export default function Login() {
       const status = err.response?.status;
       const data = err.response?.data;
 
-      if (status === 403 && data?.step === 'verify-email') {
+      if (status === 403 && (data?.needsVerification || data?.step === 'verify-email')) {
         // Unverified email handler
         setUnverifiedEmail(data.email || email);
         toast.error(data.message || 'Email verification required.');
