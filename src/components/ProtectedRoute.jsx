@@ -1,44 +1,28 @@
-import React from 'react';
 import { Navigate } from 'react-router-dom';
 
-const ProtectedRoute = ({ children, allowedRoles }) => {
+export default function ProtectedRoute({ children, allowedRoles }) {
   const token = localStorage.getItem('token');
+  const user  = JSON.parse(localStorage.getItem('user') || 'null');
 
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
+  if (!token || !user) return <Navigate to="/login" replace />;
 
-  // Check token not expired (JWT format only, skipping for mock tokens)
-  if (token.includes('.')) {
-    try {
-      const decoded = JSON.parse(atob(token.split('.')[1]));
-      if (decoded.exp && decoded.exp * 1000 < Date.now()) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
-        return <Navigate to="/login" replace />;
-      }
-    } catch (e) {
+  // Check token expiry
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    if (payload.exp * 1000 < Date.now()) {
       localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
       return <Navigate to="/login" replace />;
     }
-  }
-
-  const userStr = localStorage.getItem('user');
-  if (!userStr) {
+  } catch {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
     return <Navigate to="/login" replace />;
   }
 
-  const user = JSON.parse(userStr);
-
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    const fallbackUrl = user.role === 'user' ? '/book-slot' : '/dashboard';
-    return <Navigate to={fallbackUrl} replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return children;
-};
-
-export default ProtectedRoute;
+}
