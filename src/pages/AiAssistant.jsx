@@ -1,33 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
 
-const SYSTEM_PROMPT = `You are SmartPark AI Assistant for Galgotias University Parking Management System.
-
-You help students, faculty and staff with:
-- Parking slot availability and zones
-- Fee structure and payments
-- Monthly/Semester pass information
-- Vehicle registration process
-- ANPR gate system explanation
-- Parking rules and timings
-- How to use the parking app
-- Any parking related doubts
-
-PARKING INFO:
-- Car: ₹20/hour | Bike: ₹10/hour | Bicycle: ₹5/hour | Bus: ₹40/hour
-- Monthly Pass: Car ₹800 | Bike ₹400 | Bicycle ₹150
+const SYSTEM_PROMPT = `You are SmartPark AI Assistant for Galgotias University.
+You can answer ANY question the user asks — general knowledge, coding, math, science, anything.
+Also you have special knowledge about this parking system:
+- Car: Rs20/hour, Bike: Rs10/hour, Bicycle: Rs5/hour, Bus: Rs40/hour
+- Monthly Pass: Car Rs800, Bike Rs400
 - Zones: A=Cars, B=Bikes, C=Faculty, D=Visitors
-- Timing: 6 AM to 10 PM daily
-- Total slots: 30 (Zone A:10, B:10, C:5, D:5)
+- Timing: 6AM to 10PM
+Always reply in same language user writes in (Hindi or English).
+Be friendly, helpful, use emojis.`;
 
-RULES:
-- Always reply in same language user writes (Hindi or English)
-- Be friendly and helpful
-- Keep answers clear and short
-- Use emojis to make it friendly
-- Never share other users private data`;
-
-// Call Anthropic API directly, with backend API fallback to handle CORS or missing client key
 const callAI = async (messages) => {
+  // Try direct Anthropic call if key is present (with correct headers to handle direct browser call)
   try {
     const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
     if (apiKey) {
@@ -50,13 +34,13 @@ const callAI = async (messages) => {
       if (data.content && data.content[0]) {
         return data.content[0].text;
       }
-      throw new Error(data.error?.message || 'Failed to fetch from Anthropic');
+      throw new Error(data.error?.message || 'Direct call response error');
     }
   } catch (error) {
-    console.warn("Direct Anthropic call failed, trying backend fallback:", error);
+    console.warn("Direct Anthropic API call failed or VITE_ANTHROPIC_API_KEY missing, using backend fallback:", error);
   }
 
-  // Fallback to backend chat endpoint (fully integrated with database slot status counts)
+  // Fallback to backend chat endpoint
   const userText = messages[messages.length - 1].content;
   const history = messages.slice(0, -1).map(m => ({
     role: m.role,
@@ -74,11 +58,12 @@ const callAI = async (messages) => {
       history: history
     })
   });
+  
   const data = await response.json();
   if (data.reply) {
     return data.reply;
   }
-  throw new Error(data.message || 'Failed to call AI assistant');
+  throw new Error(data.message || 'Failed to fetch reply from AI assistant endpoint');
 };
 
 export default function AiAssistant() {
@@ -97,6 +82,7 @@ export default function AiAssistant() {
     const userText = text || input.trim();
     if (!userText || loading) return;
     setInput('');
+    if (inputRef.current) inputRef.current.style.height = 'auto';
 
     const userMsg = { role: 'user', content: userText };
     const newMessages = [...messages, userMsg];
@@ -105,23 +91,23 @@ export default function AiAssistant() {
     setStreamText('');
 
     try {
-      // Simulate streaming effect
       const reply = await callAI(newMessages);
       let i = 0;
       const interval = setInterval(() => {
+        i += 4;
         setStreamText(reply.slice(0, i));
-        i += 3;
-        if (i > reply.length) {
+        if (i >= reply.length) {
           clearInterval(interval);
           setStreamText('');
           setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
           setLoading(false);
         }
-      }, 10);
+      }, 12);
     } catch (err) {
+      console.error(err);
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: '❌ Sorry, connection issue occur ho gaya hai. Please dobara try karein.'
+        content: '❌ Sorry, kuch problem aayi. Please dobara try karo.'
       }]);
       setLoading(false);
     }
@@ -129,90 +115,94 @@ export default function AiAssistant() {
 
   const suggestions = [
     { icon: '🅿️', text: 'Kitne slots available hain abhi?' },
-    { icon: '💰', text: 'Parking fees kitni hai?' },
+    { icon: '💰', text: 'Parking fees kya hai?' },
     { icon: '🎫', text: 'Monthly pass kaise lein?' },
-    { icon: '🚗', text: 'Apni gaadi register kaise karein?' },
-    { icon: '📱', text: 'App kaise use karein?' },
-    { icon: '🔐', text: 'Password bhool gaya, kya karein?' },
+    { icon: '💻', text: 'React kya hota hai?' },
+    { icon: '🧮', text: '15 ka square root kya hai?' },
+    { icon: '🌍', text: 'India ki capital kya hai?' },
   ];
 
   return (
-    <div className="flex flex-col rounded-3xl overflow-hidden glass-panel animate-fade-in" style={{
-      height: 'calc(100vh - 140px)',
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      height: 'calc(100vh - 120px)',
       background: '#0f172a',
+      borderRadius: '24px',
+      overflow: 'hidden',
+      border: '1px solid #1e293b',
       fontFamily: 'system-ui, sans-serif'
     }}>
 
-      {/* TOP BAR */}
+      {/* HEADER */}
       <div style={{
-        padding: '16px 24px', borderBottom: '1px solid #1e293b',
+        padding: '14px 24px', borderBottom: '1px solid #1e293b',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background: '#0f172a'
+        background: '#0f172a', position: 'sticky', top: 0, zIndex: 10
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{
-            width: 36, height: 36, borderRadius: 10,
+            width: 38, height: 38, borderRadius: 10,
             background: 'linear-gradient(135deg, #1a56db, #06b6d4)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 18
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20
           }}>🤖</div>
           <div>
             <div style={{ color: 'white', fontWeight: 700, fontSize: 15 }}>SmartPark AI</div>
-            <div style={{ color: '#4ade80', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div style={{ color: '#4ade80', fontSize: 11, display: 'flex', alignItems: 'center', gap: 5 }}>
               <span style={{ width: 6, height: 6, background: '#4ade80', borderRadius: '50%', display: 'inline-block' }}/>
-              Online
+              Online — Kuch bhi poochho!
             </div>
           </div>
         </div>
-        <button
-          onClick={() => setMessages([])}
-          style={{
-            padding: '6px 14px', borderRadius: 8,
-            border: '1px solid #334155', background: 'transparent',
-            color: '#94a3b8', fontSize: 12, cursor: 'pointer'
-          }}>
-          🗑️ Clear chat
-        </button>
+        <button onClick={() => setMessages([])} style={{
+          padding: '6px 14px', borderRadius: 8,
+          border: '1px solid #334155', background: 'transparent',
+          color: '#94a3b8', fontSize: 12, cursor: 'pointer'
+        }}>🗑️ New Chat</button>
       </div>
 
-      {/* MESSAGES AREA */}
+      {/* MESSAGES */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px 0' }}>
 
         {/* Welcome screen */}
         {messages.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '40px 24px' }}>
+          <div style={{ textAlign: 'center', padding: '30px 24px' }}>
             <div style={{
-              width: 72, height: 72, borderRadius: 20, margin: '0 auto 20px',
+              width: 80, height: 80, borderRadius: 24, margin: '0 auto 20px',
               background: 'linear-gradient(135deg, #1a56db, #06b6d4)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40
             }}>🤖</div>
-            <h2 style={{ color: 'white', fontSize: 26, fontWeight: 700, margin: '0 0 8px' }}>
+            <h2 style={{ color: 'white', fontSize: 28, fontWeight: 700, margin: '0 0 10px' }}>
               SmartPark AI Assistant
             </h2>
-            <p style={{ color: '#64748b', fontSize: 14, margin: '0 0 40px' }}>
-              Parking se related koi bhi sawaal poochho — Hindi ya English mein!
+            <p style={{ color: '#64748b', fontSize: 14, margin: '0 0 8px' }}>
+              Kuch bhi poochho — parking se related ya koi bhi sawaal!
             </p>
-
-            {/* Suggestion grid */}
+            <p style={{ color: '#475569', fontSize: 12, margin: '0 0 36px' }}>
+              Hindi aur English dono mein baat kar sakte ho 🇮🇳
+            </p>
             <div style={{
-              display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: 10, maxWidth: 600, margin: '0 auto'
+              display: 'grid', gridTemplateColumns: '1fr 1fr',
+              gap: 10, maxWidth: 520, margin: '0 auto', padding: '0 16px'
             }}>
               {suggestions.map((s, i) => (
-                <button key={i} onClick={() => sendMessage(s.text)}
-                  style={{
-                    padding: '14px 16px', borderRadius: 12,
-                    border: '1px solid #1e293b',
-                    background: '#1e293b', color: '#e2e8f0',
-                    fontSize: 13, cursor: 'pointer', textAlign: 'left',
-                    transition: 'all 0.2s', lineHeight: 1.4,
-                    display: 'flex', alignItems: 'flex-start', gap: 8
-                  }}
-                  onMouseOver={e => e.currentTarget.style.borderColor = '#1a56db'}
-                  onMouseOut={e => e.currentTarget.style.borderColor = '#1e293b'}
-                >
-                  <span style={{ fontSize: 18 }}>{s.icon}</span>
-                  <span>{s.text}</span>
+                <button key={i} onClick={() => sendMessage(s.text)} style={{
+                  padding: '14px 16px', borderRadius: 12,
+                  border: '1px solid #1e293b', background: '#1e293b',
+                  color: '#e2e8f0', fontSize: 13, cursor: 'pointer',
+                  textAlign: 'left', transition: 'all 0.2s',
+                  display: 'flex', alignItems: 'flex-start', gap: 10
+                }}
+                onMouseOver={e => {
+                  e.currentTarget.style.borderColor = '#1a56db';
+                  e.currentTarget.style.background = '#1e3a8a';
+                }}
+                onMouseOut={e => {
+                  e.currentTarget.style.borderColor = '#1e293b';
+                  e.currentTarget.style.background = '#1e293b';
+                }}>
+                  <span style={{ fontSize: 20 }}>{s.icon}</span>
+                  <span style={{ lineHeight: 1.4 }}>{s.text}</span>
                 </button>
               ))}
             </div>
@@ -222,27 +212,25 @@ export default function AiAssistant() {
         {/* Chat messages */}
         {messages.map((msg, i) => (
           <div key={i} style={{
-            padding: '16px 24px',
+            padding: '20px 24px',
             background: msg.role === 'assistant' ? '#111827' : 'transparent',
-            borderBottom: msg.role === 'assistant' ? '1px solid #1e293b' : 'none'
           }}>
-            <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', gap: 14 }}>
-              {/* Avatar */}
+            <div style={{ maxWidth: 740, margin: '0 auto', display: 'flex', gap: 16 }}>
               <div style={{
-                width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                width: 34, height: 34, borderRadius: 8, flexShrink: 0,
                 background: msg.role === 'user'
                   ? 'linear-gradient(135deg, #7c3aed, #a855f7)'
                   : 'linear-gradient(135deg, #1a56db, #06b6d4)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 15, color: 'white', fontWeight: 700
+                display: 'flex', alignItems: 'center',
+                justifyContent: 'center', fontSize: 16
               }}>
                 {msg.role === 'user' ? '👤' : '🤖'}
               </div>
-              {/* Content */}
               <div style={{ flex: 1 }}>
                 <div style={{
-                  color: msg.role === 'user' ? '#f1f5f9' : '#e2e8f0',
-                  fontSize: 14, lineHeight: 1.8, whiteSpace: 'pre-wrap'
+                  color: msg.role === 'user' ? '#f8fafc' : '#e2e8f0',
+                  fontSize: 14, lineHeight: 1.85,
+                  whiteSpace: 'pre-wrap', wordBreak: 'break-word'
                 }}>
                   {msg.content}
                 </div>
@@ -251,34 +239,32 @@ export default function AiAssistant() {
           </div>
         ))}
 
-        {/* Streaming response */}
+        {/* Streaming */}
         {loading && (
-          <div style={{
-            padding: '16px 24px', background: '#111827',
-            borderBottom: '1px solid #1e293b'
-          }}>
-            <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', gap: 14 }}>
+          <div style={{ padding: '20px 24px', background: '#111827' }}>
+            <div style={{ maxWidth: 740, margin: '0 auto', display: 'flex', gap: 16 }}>
               <div style={{
-                width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                width: 34, height: 34, borderRadius: 8, flexShrink: 0,
                 background: 'linear-gradient(135deg, #1a56db, #06b6d4)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16
               }}>🤖</div>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, paddingTop: 4 }}>
                 {streamText ? (
-                  <div style={{ color: '#e2e8f0', fontSize: 14, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                  <div style={{ color: '#e2e8f0', fontSize: 14, lineHeight: 1.85, whiteSpace: 'pre-wrap' }}>
                     {streamText}
                     <span style={{
                       display: 'inline-block', width: 2, height: 16,
                       background: '#06b6d4', marginLeft: 2,
-                      animation: 'blink 1s infinite'
+                      animation: 'blink-cursor 0.8s infinite'
                     }}/>
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', gap: 5, alignItems: 'center', paddingTop: 8 }}>
+                  <div style={{ display: 'flex', gap: 5, paddingTop: 6 }}>
                     {[0,1,2].map(j => (
                       <div key={j} style={{
-                        width: 8, height: 8, borderRadius: '50%', background: '#1a56db',
-                        animation: `bounce 1.2s infinite ${j*0.2}s`
+                        width: 8, height: 8, borderRadius: '50%',
+                        background: '#1a56db',
+                        animation: `bounce-dot 1.2s infinite ${j * 0.2}s`
                       }}/>
                     ))}
                   </div>
@@ -287,18 +273,16 @@ export default function AiAssistant() {
             </div>
           </div>
         )}
-
-        <div ref={bottomRef} />
+        <div ref={bottomRef}/>
       </div>
 
-      {/* INPUT AREA */}
-      <div style={{ padding: '16px 24px', background: '#0f172a', borderTop: '1px solid #1e293b' }}>
-        <div style={{ maxWidth: 720, margin: '0 auto' }}>
+      {/* INPUT */}
+      <div style={{ padding: '16px 24px 24px', background: '#0f172a', borderTop: '1px solid #1e293b' }}>
+        <div style={{ maxWidth: 740, margin: '0 auto' }}>
           <div style={{
             display: 'flex', gap: 10, alignItems: 'flex-end',
             background: '#1e293b', borderRadius: 16,
-            border: '1px solid #334155', padding: '12px 16px',
-            transition: 'border 0.2s'
+            border: '1.5px solid #334155', padding: '10px 14px',
           }}>
             <textarea
               ref={inputRef}
@@ -306,7 +290,7 @@ export default function AiAssistant() {
               onChange={e => {
                 setInput(e.target.value);
                 e.target.style.height = 'auto';
-                e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                e.target.style.height = Math.min(e.target.scrollHeight, 130) + 'px';
               }}
               onKeyDown={e => {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -314,46 +298,43 @@ export default function AiAssistant() {
                   sendMessage();
                 }
               }}
-              placeholder="Koi bhi parking sawaal poochho... (Enter to send, Shift+Enter for new line)"
+              placeholder="Kuch bhi poochho... (Enter = Send | Shift+Enter = New line)"
               rows={1}
               style={{
                 flex: 1, background: 'transparent', border: 'none',
                 color: '#f1f5f9', fontSize: 14, resize: 'none',
-                outline: 'none', fontFamily: 'inherit', lineHeight: 1.6,
-                maxHeight: 120, overflowY: 'auto'
+                outline: 'none', fontFamily: 'inherit',
+                lineHeight: 1.65, maxHeight: 130, overflowY: 'auto'
               }}
             />
-            <button
-              onClick={() => sendMessage()}
+            <button onClick={() => sendMessage()}
               disabled={!input.trim() || loading}
               style={{
-                width: 38, height: 38, borderRadius: 10, border: 'none',
+                width: 40, height: 40, borderRadius: 10, border: 'none',
                 background: input.trim() && !loading
-                  ? 'linear-gradient(135deg, #1a56db, #06b6d4)'
-                  : '#334155',
-                color: 'white', fontSize: 16, cursor: input.trim() ? 'pointer' : 'default',
+                  ? 'linear-gradient(135deg, #1a56db, #06b6d4)' : '#334155',
+                color: 'white', fontSize: 18, cursor: input.trim() ? 'pointer' : 'default',
                 transition: 'all 0.2s', display: 'flex',
                 alignItems: 'center', justifyContent: 'center', flexShrink: 0
               }}>
               {loading ? '⏳' : '➤'}
             </button>
           </div>
-          <div style={{ textAlign: 'center', marginTop: 8, color: '#334155', fontSize: 11 }}>
-            SmartPark AI · Galgotias University Parking System
-          </div>
+          <p style={{ textAlign: 'center', color: '#475569', fontSize: 11, marginTop: 8 }}>
+            SmartPark AI · Powered by Claude · Galgotias University
+          </p>
         </div>
       </div>
 
       <style>{`
-        @keyframes bounce {
+        @keyframes bounce-dot {
           0%, 100% { transform: translateY(0); opacity: 0.4; }
           50% { transform: translateY(-6px); opacity: 1; }
         }
-        @keyframes blink {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0; }
+        @keyframes blink-cursor {
+          0%, 100% { opacity: 1; } 50% { opacity: 0; }
         }
-        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
       `}</style>

@@ -1,21 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  LogIn,
-  LogOut,
-  Map,
-  History,
-  BarChart3,
-  Settings,
-  Camera,
-  ShieldCheck,
-  Users,
-  Layers,
-  CalendarCheck,
-  CalendarRange,
-  Bot
-} from 'lucide-react';
+
+// Navigation links with emoji icons exactly as requested
+const adminNavLinks = [
+  { path: '/dashboard',    icon: '📊', label: 'Dashboard' },
+  { path: '/entry',        icon: '🚗', label: 'Vehicle Entry' },
+  { path: '/exit',         icon: '🚪', label: 'Vehicle Exit' },
+  { path: '/map',          icon: '🗺️',  label: 'Parking Map' },
+  { path: '/history',      icon: '📋', label: 'History' },
+  { path: '/passes',       icon: '🎫', label: 'Passes' },
+  { path: '/reports',      icon: '📈', label: 'Reports' },
+  { path: '/anpr',         icon: '📷', label: 'ANPR Gate' },
+  { path: '/cctv',         icon: '🎥', label: 'CCTV' },
+  { path: '/users',        icon: '👥', label: 'Users' },
+  { path: '/ai-assistant', icon: '🤖', label: 'AI Assistant', badge: 'NEW' },
+  { path: '/settings',     icon: '⚙️',  label: 'Settings' },
+];
+
+const userNavLinks = [
+  { path: '/map',          icon: '🗺️',  label: 'Parking Map' },
+  { path: '/my-bookings',  icon: '📋', label: 'My Bookings' },
+  { path: '/book-slot',    icon: '🎫', label: 'Book a Pass' },
+  { path: '/ai-assistant', icon: '🤖', label: 'AI Assistant', badge: 'NEW' },
+];
 
 export default function Sidebar() {
   const [user, setUser] = useState(() => {
@@ -33,39 +40,7 @@ export default function Sidebar() {
   }, []);
 
   const role = user ? user.role : 'user';
-
-  const getNavItems = () => {
-    if (role === 'user') {
-      return [
-        { name: 'My Parking', path: '/map', icon: Map },
-        { name: 'My History', path: '/my-bookings', icon: CalendarCheck },
-        { name: 'My Pass', path: '/book-slot', icon: CalendarRange },
-        { name: 'AI Assistant', path: '/ai-assistant', icon: Bot, badge: 'NEW' }
-      ];
-    }
-
-    const items = [];
-    items.push({ name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard });
-    items.push({ name: 'Entry Desk', path: '/entry', icon: LogIn });
-    items.push({ name: 'Exit Checkpoint', path: '/exit', icon: LogOut });
-    items.push({ name: 'Live Gate Camera', path: '/anpr', icon: Camera });
-    items.push({ name: 'Vehicle Registry', path: '/register-vehicle', icon: ShieldCheck });
-    items.push({ name: 'Parking Map', path: '/map', icon: Map });
-    items.push({ name: 'History Logs', path: '/history', icon: History });
-    items.push({ name: 'AI Assistant', path: '/ai-assistant', icon: Bot });
-
-    if (role === 'admin') {
-      items.push({ name: 'User Management', path: '/admin/users', icon: Users });
-      items.push({ name: 'Slot Management', path: '/admin/slots', icon: Layers });
-      items.push({ name: 'Booking Management', path: '/admin/bookings', icon: CalendarCheck });
-      items.push({ name: 'Reports', path: '/reports', icon: BarChart3 });
-      items.push({ name: 'Settings', path: '/settings', icon: Settings });
-    }
-
-    return items;
-  };
-
-  const navItems = getNavItems();
+  const navItems = role === 'user' ? userNavLinks : adminNavLinks;
 
   return (
     <aside className="w-64 shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between hidden md:flex transition-colors duration-300 z-10">
@@ -84,10 +59,11 @@ export default function Sidebar() {
                 }`
               }
             >
-              <item.icon className="w-5.5 h-5.5 shrink-0" />
-              <span>{item.name}</span>
+              {/* Render emoji as text, not as a React component */}
+              <span className="text-lg leading-none shrink-0 w-6 text-center">{item.icon}</span>
+              <span>{item.label}</span>
               {item.badge && (
-                <span className="ml-auto px-1.5 py-0.5 text-[9px] font-extrabold uppercase bg-primary-600 text-white rounded">
+                <span className="ml-auto px-1.5 py-0.5 text-[9px] font-extrabold uppercase bg-blue-600 text-white rounded">
                   {item.badge}
                 </span>
               )}
@@ -101,7 +77,7 @@ export default function Sidebar() {
         <p className="font-semibold text-slate-650 dark:text-slate-400 uppercase tracking-widest">
           {role === 'admin' ? 'Admin Panel' : role === 'operator' ? 'Campus Control' : 'User Portal'}
         </p>
-        <p className="mt-0.5">Version 1.0.0 (Vite + React)</p>
+        <p className="mt-0.5">Galgotias University · v1.0</p>
       </div>
     </aside>
   );

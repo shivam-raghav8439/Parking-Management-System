@@ -7,7 +7,7 @@ import Spinner from './components/Loader';
 import { resetInactivityTimer, logout } from './api/client';
 import ProtectedRoute from './components/ProtectedRoute';
 import InstallPrompt from './components/InstallPrompt';
-import AiChatbot from './components/AiChatbot';
+import FloatingAI from './components/FloatingAI';
 
 // Lazy load route pages
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -20,6 +20,7 @@ const Settings = lazy(() => import('./pages/Settings'));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const Anpr = lazy(() => import('./pages/Anpr'));
+const Cctv = lazy(() => import('./pages/Cctv'));
 const RegisterVehicle = lazy(() => import('./pages/RegisterVehicle'));
 
 // New Admin & User pages
@@ -188,6 +189,11 @@ export default function App() {
               <Route path="/admin/slots" element={<RequireAuth allowedRoles={['admin']}><SlotManagement /></RequireAuth>} />
               <Route path="/admin/bookings" element={<RequireAuth allowedRoles={['admin']}><BookingManagement /></RequireAuth>} />
               
+              {/* Alias routes — /passes → BookSlot, /cctv → Cctv, /users → UserManagement */}
+              <Route path="/passes" element={<RequireAuth><BookSlot /></RequireAuth>} />
+              <Route path="/cctv" element={<RequireAuth allowedRoles={['admin', 'operator']}><Cctv /></RequireAuth>} />
+              <Route path="/users" element={<RequireAuth allowedRoles={['admin']}><UserManagement /></RequireAuth>} />
+
               <Route path="/ai-assistant" element={<RequireAuth><AiAssistant /></RequireAuth>} />
               <Route path="*" element={<RootRedirect />} />
             </Routes>
@@ -227,7 +233,7 @@ export default function App() {
         </div>
       )}
       <InstallPrompt />
-      {isAuthenticated && <AiChatbot />}
+      {isAuthenticated && <FloatingAI />}
     </div>
   );
 }
