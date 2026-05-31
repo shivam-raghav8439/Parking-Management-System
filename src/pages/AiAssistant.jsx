@@ -11,33 +11,31 @@ Always reply in same language user writes in (Hindi or English).
 Be friendly, helpful, use emojis.`;
 
 const callAI = async (messages) => {
-  // Try direct Anthropic call if key is present (with correct headers to handle direct browser call)
   try {
     const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-    if (apiKey) {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(apiKey ? {
           'x-api-key': apiKey,
           'anthropic-version': '2023-06-01',
           'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022',
-          max_tokens: 1000,
-          system: SYSTEM_PROMPT,
-          messages: messages
-        })
-      });
-      const data = await response.json();
-      if (data.content && data.content[0]) {
-        return data.content[0].text;
-      }
-      throw new Error(data.error?.message || 'Direct call response error');
+        } : {})
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: SYSTEM_PROMPT,
+        messages: messages
+      })
+    });
+    const data = await response.json();
+    if (data.content && data.content[0]) {
+      return data.content[0].text;
     }
-  } catch (error) {
-    console.warn("Direct Anthropic API call failed or VITE_ANTHROPIC_API_KEY missing, using backend fallback:", error);
+  } catch (err) {
+    console.warn("Direct Claude call failed, trying backend fallback:", err);
   }
 
   // Fallback to backend chat endpoint
@@ -103,8 +101,7 @@ export default function AiAssistant() {
           setLoading(false);
         }
       }, 12);
-    } catch (err) {
-      console.error(err);
+    } catch {
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: '❌ Sorry, kuch problem aayi. Please dobara try karo.'
@@ -124,14 +121,9 @@ export default function AiAssistant() {
 
   return (
     <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      height: 'calc(100vh - 120px)',
-      background: '#0f172a',
-      borderRadius: '24px',
-      overflow: 'hidden',
-      border: '1px solid #1e293b',
-      fontFamily: 'system-ui, sans-serif'
+      display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)',
+      background: '#0f172a', fontFamily: 'system-ui, sans-serif',
+      borderRadius: '24px', overflow: 'hidden', border: '1px solid #1e293b'
     }}>
 
       {/* HEADER */}
@@ -255,7 +247,7 @@ export default function AiAssistant() {
                     <span style={{
                       display: 'inline-block', width: 2, height: 16,
                       background: '#06b6d4', marginLeft: 2,
-                      animation: 'blink-cursor 0.8s infinite'
+                      animation: 'blink 0.8s infinite'
                     }}/>
                   </div>
                 ) : (
@@ -264,7 +256,7 @@ export default function AiAssistant() {
                       <div key={j} style={{
                         width: 8, height: 8, borderRadius: '50%',
                         background: '#1a56db',
-                        animation: `bounce-dot 1.2s infinite ${j * 0.2}s`
+                        animation: `bounce 1.2s infinite ${j * 0.2}s`
                       }}/>
                     ))}
                   </div>
@@ -320,19 +312,19 @@ export default function AiAssistant() {
               {loading ? '⏳' : '➤'}
             </button>
           </div>
-          <p style={{ textAlign: 'center', color: '#475569', fontSize: 11, marginTop: 8 }}>
+          <p style={{ textAlign: 'center', color: '#1e293b', fontSize: 11, marginTop: 8 }}>
             SmartPark AI · Powered by Claude · Galgotias University
           </p>
         </div>
       </div>
 
       <style>{`
-        @keyframes bounce-dot {
-          0%, 100% { transform: translateY(0); opacity: 0.4; }
-          50% { transform: translateY(-6px); opacity: 1; }
+        @keyframes bounce {
+          0%,100% { transform:translateY(0); opacity:0.4; }
+          50% { transform:translateY(-6px); opacity:1; }
         }
-        @keyframes blink-cursor {
-          0%, 100% { opacity: 1; } 50% { opacity: 0; }
+        @keyframes blink {
+          0%,100% { opacity:1; } 50% { opacity:0; }
         }
         ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
