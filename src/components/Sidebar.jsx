@@ -13,7 +13,8 @@ import {
   Users,
   Layers,
   CalendarCheck,
-  CalendarRange
+  CalendarRange,
+  Bot
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -38,7 +39,8 @@ export default function Sidebar() {
       return [
         { name: 'My Parking', path: '/map', icon: Map },
         { name: 'My History', path: '/my-bookings', icon: CalendarCheck },
-        { name: 'My Pass', path: '/book-slot', icon: CalendarRange }
+        { name: 'My Pass', path: '/book-slot', icon: CalendarRange },
+        { name: 'AI Assistant', path: '/ai-assistant', icon: Bot, badge: 'NEW' }
       ];
     }
 
@@ -50,6 +52,7 @@ export default function Sidebar() {
     items.push({ name: 'Vehicle Registry', path: '/register-vehicle', icon: ShieldCheck });
     items.push({ name: 'Parking Map', path: '/map', icon: Map });
     items.push({ name: 'History Logs', path: '/history', icon: History });
+    items.push({ name: 'AI Assistant', path: '/ai-assistant', icon: Bot });
 
     if (role === 'admin') {
       items.push({ name: 'User Management', path: '/admin/users', icon: Users });
@@ -83,6 +86,11 @@ export default function Sidebar() {
             >
               <item.icon className="w-5.5 h-5.5 shrink-0" />
               <span>{item.name}</span>
+              {item.badge && (
+                <span className="ml-auto px-1.5 py-0.5 text-[9px] font-extrabold uppercase bg-primary-600 text-white rounded">
+                  {item.badge}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>

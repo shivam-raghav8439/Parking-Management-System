@@ -34,6 +34,7 @@ const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const GoogleSuccess = lazy(() => import('./pages/GoogleSuccess'));
+const AiAssistant = lazy(() => import('./pages/AiAssistant'));
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -187,6 +188,7 @@ export default function App() {
               <Route path="/admin/slots" element={<RequireAuth allowedRoles={['admin']}><SlotManagement /></RequireAuth>} />
               <Route path="/admin/bookings" element={<RequireAuth allowedRoles={['admin']}><BookingManagement /></RequireAuth>} />
               
+              <Route path="/ai-assistant" element={<RequireAuth><AiAssistant /></RequireAuth>} />
               <Route path="*" element={<RootRedirect />} />
             </Routes>
           </Suspense>
