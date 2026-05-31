@@ -21,10 +21,24 @@ export const getSlots = async (req, res, next) => {
 
     const slots = await Slot.find(filter).sort({ slotId: 1 }).populate('currentRecord');
     
+    let data = slots;
+    const isStudent = req.user && (req.user.role === 'user' || req.user.role === 'student');
+    if (isStudent) {
+      data = slots.map(s => {
+        if (s.status === 'occupied') {
+          const plain = s.toObject ? s.toObject() : s;
+          plain.currentRecord = null;
+          plain.status = 'booked';
+          return plain;
+        }
+        return s;
+      });
+    }
+
     res.status(200).json({
       success: true,
-      count: slots.length,
-      data: slots
+      count: data.length,
+      data
     });
   } catch (error) {
     next(error);

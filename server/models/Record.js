@@ -16,6 +16,7 @@ const recordSchema = new mongoose.Schema({
   status: { type: String, enum: ['active', 'exited'], default: 'active' },
   isAutoEntry: { type: Boolean, default: false },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
 }, { timestamps: true });
 
 // Indexes for fast queries:

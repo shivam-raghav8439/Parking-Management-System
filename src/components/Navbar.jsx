@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { useParkingStats } from '../hooks/useParkingData';
 import { parkingApi } from '../api/parkingApi';
 import GalgotiasLogo from './GalgotiasLogo';
+import { logout } from '../api/client';
 
 export default function Navbar() {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -102,14 +103,7 @@ export default function Navbar() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    
-    // Dispatch auth state change
-    window.dispatchEvent(new Event('authChange'));
-    
-    // Redirect to login
-    window.location.href = '/login';
+    logout();
   };
 
   return (
@@ -239,9 +233,9 @@ export default function Navbar() {
             {(() => {
               const items = [];
               if (role === 'user') {
-                items.push({ name: 'Book Parking', path: '/book-slot' });
-                items.push({ name: 'My Bookings', path: '/my-bookings' });
-                items.push({ name: 'Parking Map', path: '/map' });
+                items.push({ name: 'My Parking', path: '/map' });
+                items.push({ name: 'My History', path: '/my-bookings' });
+                items.push({ name: 'My Pass', path: '/book-slot' });
               } else {
                 items.push({ name: 'Dashboard', path: '/dashboard' });
                 items.push({ name: 'Entry Desk', path: '/entry' });

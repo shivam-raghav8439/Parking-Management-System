@@ -22,9 +22,9 @@ export default function BottomNavigation() {
   const getNavItems = () => {
     if (role === 'user') {
       return [
-        { name: 'Book Parking', path: '/book-slot', icon: CalendarRange },
-        { name: 'My Bookings', path: '/my-bookings', icon: CalendarCheck },
-        { name: 'Parking Map', path: '/map', icon: Map }
+        { name: 'My Parking', path: '/map', icon: Map },
+        { name: 'My History', path: '/my-bookings', icon: CalendarCheck },
+        { name: 'My Pass', path: '/book-slot', icon: CalendarRange }
       ];
     }
     return [

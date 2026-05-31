@@ -22,6 +22,9 @@ import anprRouter from './routes/anpr.js';
 import vehicleRouter from './routes/vehicle.js';
 import userRouter from './routes/users.js';
 import bookingRouter from './routes/bookings.js';
+import passport from 'passport';
+import session from 'express-session';
+import configurePassport from './config/passport.js';
 
 // 1. Initialize environment configurations
 dotenv.config();
@@ -39,7 +42,17 @@ connectDB();
 // Connect to Redis Cache
 connectRedis();
 
+// Initialize Passport configs
+configurePassport();
+
 const app = express();
+
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'parking_session_secret_999',
+  resave: false,
+  saveUninitialized: false
+}));
+app.use(passport.initialize());
 
 // 3. Configure Global Middlewares
 app.use(compression());

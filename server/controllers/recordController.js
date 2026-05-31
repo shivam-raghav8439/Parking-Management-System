@@ -253,6 +253,11 @@ export const getRecords = async (req, res, next) => {
 
     const query = {};
 
+    // Filter records for student/user
+    if (req.user && (req.user.role === 'user' || req.user.role === 'student')) {
+      query.userId = req.user._id;
+    }
+
     if (req.query.status) {
       query.status = req.query.status;
     }

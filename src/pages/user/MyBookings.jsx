@@ -253,7 +253,7 @@ export default function MyBookings() {
 
             {/* Sandbox details */}
             <div className="p-3 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-100/50 dark:border-amber-900/30 rounded-xl text-[10px] text-amber-700 dark:text-amber-450 leading-relaxed font-semibold flex gap-2">
-              <AlertCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-amber-500" />
+              <AlertTriangle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-amber-500" />
               <p>This is a simulated Razorpay payment gateway checkout interface. No real credentials are required, and no real currency is processed.</p>
             </div>
 

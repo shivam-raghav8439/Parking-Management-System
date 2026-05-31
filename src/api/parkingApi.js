@@ -316,52 +316,371 @@ const handleApiCall = async (apiPromise, mockFunc) => {
 // LOCAL STORAGE API FALLBACK IMPLEMENTATION
 // -------------------------------------------------------------
 const mockApi = {
-  login: ({ email, password }) => {
+  login: ({ email, password, mobile, otp }) => {
     let users = JSON.parse(localStorage.getItem('college_parking_users')) || [];
-    let user = users.find(u => u.email === email.toLowerCase());
-    if (!user) {
-      user = {
-        _id: email.toLowerCase().includes('admin') ? 'mock_admin_id' : `mock_user_${Date.now()}`,
-        name: email.split('@')[0].toUpperCase(),
-        email: email.toLowerCase(),
-        role: email.toLowerCase().includes('admin') ? 'admin' : (email.toLowerCase().includes('operator') ? 'operator' : 'user'),
-        status: 'active',
-        createdAt: new Date().toISOString()
-      };
-      users.push(user);
-      localStorage.setItem('college_parking_users', JSON.stringify(users));
+    let user;
+
+    if (mobile && otp) {
+      user = users.find(u => u.mobile === mobile);
+      if (!user) {
+        const err = new Error('No user registered with this mobile number.');
+        err.response = { status: 404, data: { message: 'No user registered with this mobile number.' } };
+        throw err;
+      }
+      if (user.mobileOtp !== otp) {
+        user.otpAttempts = (user.otpAttempts || 0) + 1;
+        if (user.otpAttempts >= 3) {
+          user.mobileOtp = null;
+          user.mobileOtpExpires = null;
+          user.otpAttempts = 0;
+          const idx = users.findIndex(u => u._id === user._id);
+          if (idx !== -1) {
+            users[idx] = user;
+            localStorage.setItem('college_parking_users', JSON.stringify(users));
+          }
+          const err = new Error('Too many incorrect attempts. Mobile verification locked for 30 minutes.');
+          err.response = { status: 400, data: { message: 'Too many incorrect attempts. Mobile verification locked for 30 minutes.' } };
+          throw err;
+        }
+        const idx = users.findIndex(u => u._id === user._id);
+        if (idx !== -1) {
+          users[idx] = user;
+          localStorage.setItem('college_parking_users', JSON.stringify(users));
+        }
+        const err = new Error(`Invalid OTP. ${3 - user.otpAttempts} attempts remaining.`);
+        err.response = { status: 400, data: { message: `Invalid OTP. ${3 - user.otpAttempts} attempts remaining.` } };
+        throw err;
+      }
+      user.isMobileVerified = true;
+      user.mobileOtp = null;
+      user.mobileOtpExpires = null;
+      user.otpAttempts = 0;
+    } else {
+      user = users.find(u => u.email === email.toLowerCase());
+      if (!user) {
+        user = {
+          _id: email.toLowerCase().includes('admin') ? 'mock_admin_id' : `mock_user_${Date.now()}`,
+          name: email.split('@')[0].toUpperCase(),
+          email: email.toLowerCase(),
+          role: email.toLowerCase().includes('admin') ? 'admin' : (email.toLowerCase().includes('operator') ? 'operator' : 'user'),
+          status: 'active',
+          isEmailVerified: true,
+          isMobileVerified: true,
+          createdAt: new Date().toISOString()
+        };
+        users.push(user);
+        localStorage.setItem('college_parking_users', JSON.stringify(users));
+      }
     }
+
     if (user.status === 'blocked') {
       const err = new Error('Your account has been blocked by admin.');
       err.response = { status: 403, data: { message: 'Your account has been blocked by admin.' } };
       throw err;
     }
+    if (user.isEmailVerified === false) {
+      const emailVerifyToken = `mock_verify_token_${Date.now()}`;
+      user.emailVerifyToken = emailVerifyToken;
+      user.emailVerifyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      
+      const idx = users.findIndex(u => u._id === user._id);
+      if (idx !== -1) {
+        users[idx] = user;
+        localStorage.setItem('college_parking_users', JSON.stringify(users));
+      }
+      
+      console.log(`\n======================================`);
+      console.log(`[MOCK EMAIL VERIFIER - RESEND] To: ${user.email}`);
+      console.log(`Verification Link: http://localhost:5173/verify-email?token=${emailVerifyToken}`);
+      console.log(`======================================\n`);
+
+      const err = new Error('Please verify your email first. A new verification link has been sent to your email.');
+      err.response = { status: 403, data: { message: 'Please verify your email first. A new verification link has been sent to your email.', email: user.email } };
+      throw err;
+    }
     const mockToken = `mock_token_${user._id || user.id}`;
+    const mockRefreshToken = `mock_refresh_${user._id || user.id}`;
+    user.refreshToken = mockRefreshToken;
+    user.refreshTokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    
+    const idx = users.findIndex(u => u._id === user._id);
+    if (idx !== -1) {
+      users[idx] = user;
+      localStorage.setItem('college_parking_users', JSON.stringify(users));
+    }
+    
     localStorage.setItem('token', mockToken);
+    localStorage.setItem('refreshToken', mockRefreshToken);
     localStorage.setItem('user', JSON.stringify(user));
-    return { success: true, token: mockToken, user };
+    return { success: true, token: mockToken, refreshToken: mockRefreshToken, user };
   },
 
-  register: ({ name, email, role }) => {
+  register: ({ name, email, role, mobile }) => {
     let users = JSON.parse(localStorage.getItem('college_parking_users')) || [];
     if (users.some(u => u.email === email.toLowerCase())) {
       throw new Error('User already exists');
     }
     const computedRole = users.length === 0 ? 'admin' : (role || 'user');
+    const emailVerifyToken = `mock_verify_token_${Date.now()}`;
+    const emailVerifyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    
     const user = {
       _id: `mock_user_${Date.now()}`,
       name,
       email: email.toLowerCase(),
       role: computedRole,
       status: 'active',
+      isEmailVerified: false,
+      emailVerifyToken,
+      emailVerifyExpires,
+      mobile: mobile || null,
+      isMobileVerified: false,
+      otpAttempts: 0,
       createdAt: new Date().toISOString()
     };
+
+    if (mobile) {
+      const otp = '123456';
+      user.mobileOtp = otp;
+      user.mobileOtpExpires = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+      users.push(user);
+      localStorage.setItem('college_parking_users', JSON.stringify(users));
+      
+      console.log(`\n======================================`);
+      console.log(`[MOCK OTP SENDER] Mobile: ${mobile}, OTP Code: ${otp}`);
+      console.log(`======================================\n`);
+
+      return {
+        success: true,
+        step: 'verify-otp',
+        message: 'OTP sent to mobile (Simulation)',
+        email: user.email,
+        mobile: user.mobile
+      };
+    }
+
     users.push(user);
     localStorage.setItem('college_parking_users', JSON.stringify(users));
+    
+    console.log(`\n======================================`);
+    console.log(`[MOCK EMAIL VERIFIER] To: ${email}`);
+    console.log(`Verification Link: http://localhost:5173/verify-email?token=${emailVerifyToken}`);
+    console.log(`======================================\n`);
+
+    return {
+      success: true,
+      step: 'verify-email',
+      message: 'Check your email to verify account (Simulation)',
+      email: user.email
+    };
+  },
+
+  verifyEmail: (token) => {
+    let users = JSON.parse(localStorage.getItem('college_parking_users')) || [];
+    const user = users.find(u => u.emailVerifyToken === token);
+    if (!user) {
+      throw new Error('Invalid or expired verification token in memory.');
+    }
+    user.isEmailVerified = true;
+    user.emailVerifyToken = null;
+    user.emailVerifyExpires = null;
+    
+    const mockToken = `mock_token_${user._id}`;
+    const mockRefreshToken = `mock_refresh_${user._id}`;
+    user.refreshToken = mockRefreshToken;
+    user.refreshTokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    
+    localStorage.setItem('college_parking_users', JSON.stringify(users));
+    localStorage.setItem('token', mockToken);
+    localStorage.setItem('refreshToken', mockRefreshToken);
+    localStorage.setItem('user', JSON.stringify(user));
+    
+    return { success: true, message: 'Email verification successful.', token: mockToken, refreshToken: mockRefreshToken, user };
+  },
+
+  resendVerification: ({ email }) => {
+    let users = JSON.parse(localStorage.getItem('college_parking_users')) || [];
+    const user = users.find(u => u.email === email.toLowerCase());
+    if (!user) {
+      throw new Error('User not found in memory.');
+    }
+    const emailVerifyToken = `mock_verify_token_${Date.now()}`;
+    user.emailVerifyToken = emailVerifyToken;
+    user.emailVerifyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    
+    localStorage.setItem('college_parking_users', JSON.stringify(users));
+    
+    console.log(`\n======================================`);
+    console.log(`[MOCK EMAIL VERIFIER - RESEND] To: ${email}`);
+    console.log(`Verification Link: http://localhost:5173/verify-email?token=${emailVerifyToken}`);
+    console.log(`======================================\n`);
+    
+    return { success: true, message: 'Verification link resent to your email.' };
+  },
+
+  sendOtp: ({ mobile }) => {
+    let users = JSON.parse(localStorage.getItem('college_parking_users')) || [];
+    const user = users.find(u => u.mobile === mobile);
+    if (!user) {
+      throw new Error('No registered user matches this mobile number in memory.');
+    }
+    const otp = '123456';
+    user.mobileOtp = otp;
+    user.mobileOtpExpires = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    
+    localStorage.setItem('college_parking_users', JSON.stringify(users));
+    
+    console.log(`\n======================================`);
+    console.log(`[MOCK OTP SENDER] Mobile: ${mobile}, OTP Code: ${otp}`);
+    console.log(`======================================\n`);
+    
+    return { success: true, message: 'OTP sent to mobile successfully.' };
+  },
+
+  verifyOtp: ({ mobile, otp }) => {
+    let users = JSON.parse(localStorage.getItem('college_parking_users')) || [];
+    const user = users.find(u => u.mobile === mobile);
+    if (!user) {
+      throw new Error('User not found in memory.');
+    }
+    if (user.mobileOtp !== otp) {
+      user.otpAttempts = (user.otpAttempts || 0) + 1;
+      if (user.otpAttempts >= 3) {
+        user.mobileOtp = null;
+        user.mobileOtpExpires = null;
+        user.otpAttempts = 0;
+        localStorage.setItem('college_parking_users', JSON.stringify(users));
+        throw new Error('Too many incorrect attempts. Mobile verification locked for 30 minutes.');
+      }
+      localStorage.setItem('college_parking_users', JSON.stringify(users));
+      throw new Error(`Invalid OTP. ${3 - user.otpAttempts} attempts remaining.`);
+    }
+    user.isMobileVerified = true;
+    user.mobileOtp = null;
+    user.mobileOtpExpires = null;
+    user.otpAttempts = 0;
+
+    const emailVerifyToken = `mock_verify_token_${Date.now()}`;
+    user.emailVerifyToken = emailVerifyToken;
+    user.emailVerifyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+    localStorage.setItem('college_parking_users', JSON.stringify(users));
+
+    console.log(`\n======================================`);
+    console.log(`[MOCK EMAIL VERIFIER - OTP COMPLETED] To: ${user.email}`);
+    console.log(`Verification Link: http://localhost:5173/verify-email?token=${emailVerifyToken}`);
+    console.log(`======================================\n`);
+
+    return {
+      success: true,
+      message: 'Mobile OTP verified. Verification link sent to your registered email.',
+      email: user.email
+    };
+  },
+
+  resendOtp: ({ mobile }) => {
+    let users = JSON.parse(localStorage.getItem('college_parking_users')) || [];
+    const user = users.find(u => u.mobile === mobile);
+    if (!user) {
+      throw new Error('User not found in memory.');
+    }
+    const otp = '123456';
+    user.mobileOtp = otp;
+    user.mobileOtpExpires = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    
+    localStorage.setItem('college_parking_users', JSON.stringify(users));
+
+    console.log(`\n======================================`);
+    console.log(`[MOCK OTP SENDER - RESEND] Mobile: ${mobile}, OTP Code: ${otp}`);
+    console.log(`======================================\n`);
+    
+    return { success: true, message: 'New OTP sent to mobile.' };
+  },
+
+  forgotPassword: ({ email }) => {
+    let users = JSON.parse(localStorage.getItem('college_parking_users')) || [];
+    const user = users.find(u => u.email === email.toLowerCase());
+    if (!user) {
+      throw new Error('User not found in memory.');
+    }
+    const resetToken = `mock_reset_token_${Date.now()}`;
+    user.passwordResetToken = resetToken;
+    user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+    let resetOtp = null;
+    if (user.isMobileVerified && user.mobile) {
+      resetOtp = '123456';
+      user.passwordResetOtp = resetOtp;
+      user.passwordResetOtpExpires = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+      console.log(`\n======================================`);
+      console.log(`[MOCK PASSWORD RESET OTP] Mobile: ${user.mobile}, OTP Code: ${resetOtp}`);
+      console.log(`======================================\n`);
+    }
+
+    localStorage.setItem('college_parking_users', JSON.stringify(users));
+
+    console.log(`\n======================================`);
+    console.log(`[MOCK PASSWORD RESET EMAIL] To: ${email}`);
+    console.log(`Reset Link: http://localhost:5173/reset-password?token=${resetToken}`);
+    console.log(`======================================\n`);
+
+    return {
+      success: true,
+      message: 'Reset link sent to your email (Simulation)',
+      mobileVerified: !!(user.isMobileVerified && user.mobile)
+    };
+  },
+
+  resetPassword: ({ token, newPassword }) => {
+    let users = JSON.parse(localStorage.getItem('college_parking_users')) || [];
+    const user = users.find(u => u.passwordResetToken === token);
+    if (!user) {
+      throw new Error('Invalid or expired reset token in memory.');
+    }
+    if (newPassword.length < 8 || !/[0-9]/.test(newPassword) || !/[A-Z]/.test(newPassword)) {
+      throw new Error('Password must be at least 8 characters long, contain at least 1 number, and at least 1 uppercase letter.');
+    }
+    user.password = newPassword;
+    user.passwordResetToken = null;
+    user.passwordResetExpires = null;
+    user.passwordResetOtp = null;
+    user.passwordResetOtpExpires = null;
+
+    localStorage.setItem('college_parking_users', JSON.stringify(users));
+    return { success: true, message: 'Password reset successful' };
+  },
+
+  resetPasswordOtp: ({ mobile, otp, newPassword }) => {
+    let users = JSON.parse(localStorage.getItem('college_parking_users')) || [];
+    const user = users.find(u => u.mobile === mobile);
+    if (!user) {
+      throw new Error('User not found in memory.');
+    }
+    if (user.passwordResetOtp !== otp) {
+      throw new Error('Invalid reset OTP.');
+    }
+    if (newPassword.length < 8 || !/[0-9]/.test(newPassword) || !/[A-Z]/.test(newPassword)) {
+      throw new Error('Password must be at least 8 characters long, contain at least 1 number, and at least 1 uppercase letter.');
+    }
+    user.password = newPassword;
+    user.passwordResetToken = null;
+    user.passwordResetExpires = null;
+    user.passwordResetOtp = null;
+    user.passwordResetOtpExpires = null;
+
+    localStorage.setItem('college_parking_users', JSON.stringify(users));
+    return { success: true, message: 'Password reset successful' };
+  },
+
+  refreshToken: ({ refreshToken }) => {
+    let users = JSON.parse(localStorage.getItem('college_parking_users')) || [];
+    const user = users.find(u => u.refreshToken === refreshToken);
+    if (!user) {
+      throw new Error('Invalid or expired refresh token.');
+    }
     const mockToken = `mock_token_${user._id}`;
     localStorage.setItem('token', mockToken);
-    localStorage.setItem('user', JSON.stringify(user));
-    return { success: true, token: mockToken, user };
+    return { success: true, accessToken: mockToken };
   },
 
   getCurrentUser: () => {
@@ -762,6 +1081,33 @@ export const parkingApi = {
 
   getCurrentUser: () => 
     handleApiCall(() => client.get('/auth/me'), mockApi.getCurrentUser),
+
+  verifyEmail: (token) =>
+    handleApiCall(() => client.get(`/auth/verify-email?token=${token}`), () => mockApi.verifyEmail(token)),
+
+  resendVerification: (data) =>
+    handleApiCall(() => client.post('/auth/resend-verification', data), () => mockApi.resendVerification(data)),
+
+  sendOtp: (data) =>
+    handleApiCall(() => client.post('/auth/send-otp', data), () => mockApi.sendOtp(data)),
+
+  verifyOtp: (data) =>
+    handleApiCall(() => client.post('/auth/verify-otp', data), () => mockApi.verifyOtp(data)),
+
+  resendOtp: (data) =>
+    handleApiCall(() => client.post('/auth/resend-otp', data), () => mockApi.resendOtp(data)),
+
+  forgotPassword: (data) =>
+    handleApiCall(() => client.post('/auth/forgot-password', data), () => mockApi.forgotPassword(data)),
+
+  resetPassword: (data) =>
+    handleApiCall(() => client.post('/auth/reset-password', data), () => mockApi.resetPassword(data)),
+
+  resetPasswordOtp: (data) =>
+    handleApiCall(() => client.post('/auth/reset-password-otp', data), () => mockApi.resetPasswordOtp(data)),
+
+  refreshToken: (data) =>
+    handleApiCall(() => client.post('/auth/refresh-token', data), () => mockApi.refreshToken(data)),
 
   getStats: () => 
     handleApiCall(() => client.get('/stats'), mockApi.getStats),
