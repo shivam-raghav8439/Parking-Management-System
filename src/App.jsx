@@ -5,6 +5,7 @@ import Sidebar from './components/Sidebar';
 import BottomNavigation from './components/BottomNavigation';
 import Spinner from './components/Loader';
 import { resetInactivityTimer, logout } from './api/client';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // Lazy load route pages
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -121,19 +122,7 @@ export default function App() {
 
   // Guard Wrapper Component
   const RequireAuth = ({ children, allowedRoles }) => {
-    if (!isAuthenticated) return <Navigate to="/login" replace />;
-    
-    const userStr = localStorage.getItem('user');
-    if (!userStr) return <Navigate to="/login" replace />;
-    
-    const user = JSON.parse(userStr);
-    
-    if (allowedRoles && !allowedRoles.includes(user.role)) {
-      const fallbackUrl = user.role === 'user' ? '/book-slot' : '/dashboard';
-      return <Navigate to={fallbackUrl} replace />;
-    }
-    
-    return children;
+    return <ProtectedRoute allowedRoles={allowedRoles}>{children}</ProtectedRoute>;
   };
 
   const RootRedirect = () => {

@@ -270,9 +270,9 @@ const initMockDB = () => {
   let users = JSON.parse(localStorage.getItem('college_parking_users'));
   if (!users) {
     users = [
-      { _id: 'mock_admin_id', name: 'Admin User', email: 'admin@campus.edu', role: 'admin', status: 'active', createdAt: new Date().toISOString() },
-      { _id: 'mock_operator_id', name: 'Operator User', email: 'operator@campus.edu', role: 'operator', status: 'active', createdAt: new Date().toISOString() },
-      { _id: 'mock_user_id', name: 'Rahul Sharma', email: 'user@campus.edu', role: 'user', status: 'active', createdAt: new Date().toISOString() }
+      { _id: 'mock_admin_id', name: 'Admin User', email: 'admin@campus.edu', password: 'Password123', role: 'admin', isEmailVerified: true, status: 'active', createdAt: new Date().toISOString() },
+      { _id: 'mock_operator_id', name: 'Operator User', email: 'operator@campus.edu', password: 'Password123', role: 'operator', isEmailVerified: true, status: 'active', createdAt: new Date().toISOString() },
+      { _id: 'mock_user_id', name: 'Rahul Sharma', email: 'user@campus.edu', password: 'Password123', role: 'user', isEmailVerified: true, status: 'active', createdAt: new Date().toISOString() }
     ];
     localStorage.setItem('college_parking_users', JSON.stringify(users));
   }
@@ -358,18 +358,14 @@ const mockApi = {
     } else {
       user = users.find(u => u.email === email.toLowerCase());
       if (!user) {
-        user = {
-          _id: email.toLowerCase().includes('admin') ? 'mock_admin_id' : `mock_user_${Date.now()}`,
-          name: email.split('@')[0].toUpperCase(),
-          email: email.toLowerCase(),
-          role: email.toLowerCase().includes('admin') ? 'admin' : (email.toLowerCase().includes('operator') ? 'operator' : 'user'),
-          status: 'active',
-          isEmailVerified: true,
-          isMobileVerified: true,
-          createdAt: new Date().toISOString()
-        };
-        users.push(user);
-        localStorage.setItem('college_parking_users', JSON.stringify(users));
+        const err = new Error('Invalid email or password.');
+        err.response = { status: 401, data: { message: 'Invalid email or password.' } };
+        throw err;
+      }
+      if (user.password !== password) {
+        const err = new Error('Invalid email or password.');
+        err.response = { status: 401, data: { message: 'Invalid email or password.' } };
+        throw err;
       }
     }
 
@@ -415,7 +411,7 @@ const mockApi = {
     return { success: true, token: mockToken, refreshToken: mockRefreshToken, user };
   },
 
-  register: ({ name, email, role, mobile }) => {
+  register: ({ name, email, role, mobile, password }) => {
     let users = JSON.parse(localStorage.getItem('college_parking_users')) || [];
     if (users.some(u => u.email === email.toLowerCase())) {
       throw new Error('User already exists');
@@ -429,6 +425,7 @@ const mockApi = {
       name,
       email: email.toLowerCase(),
       role: computedRole,
+      password: password || 'Password123',
       status: 'active',
       isEmailVerified: false,
       emailVerifyToken,

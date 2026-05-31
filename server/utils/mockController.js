@@ -140,18 +140,10 @@ export const mockController = {
     } else {
       user = global.mockDb.users.find(u => u.email === email.toLowerCase());
       if (!user) {
-        user = {
-          _id: email.toLowerCase().includes('admin') ? 'mock_admin_id' : `mock_user_${Date.now()}`,
-          name: email.split('@')[0].toUpperCase(),
-          email: email.toLowerCase(),
-          password: password || 'Password123',
-          role: email.toLowerCase().includes('admin') ? 'admin' : (email.toLowerCase().includes('operator') ? 'operator' : 'user'),
-          status: 'active',
-          isEmailVerified: true,
-          isMobileVerified: true,
-          createdAt: new Date()
-        };
-        global.mockDb.users.push(user);
+        return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+      }
+      if (user.password !== password) {
+        return res.status(401).json({ success: false, message: 'Invalid email or password.' });
       }
     }
 

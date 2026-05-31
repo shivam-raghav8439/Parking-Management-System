@@ -64,7 +64,10 @@ export function seedMockDb() {
       _id: 'mock_admin_id',
       name: 'Campus Admin',
       email: 'admin@campus.edu',
+      password: 'Password123',
       role: 'admin',
+      isEmailVerified: true,
+      status: 'active',
       createdAt: new Date()
     });
   }

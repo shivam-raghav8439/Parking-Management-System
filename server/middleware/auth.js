@@ -19,20 +19,21 @@ export const protect = async (req, res, next) => {
     });
   }
 
-  // Handle In-Memory Sandbox Mode authentication bypass
+  // Handle In-Memory Sandbox Mode authentication check
   if (global.isMockDB) {
-    let userId = 'mock_admin_id';
+    let userId = '';
     if (token && token.startsWith('mock_token_')) {
       userId = token.replace('mock_token_', '');
     }
     
-    const user = global.mockDb.users.find(u => u._id === userId) || global.mockDb.users[0] || { 
-      _id: 'mock_admin_id', 
-      name: 'Campus Admin', 
-      email: 'admin@campus.edu', 
-      role: 'admin',
-      status: 'active'
-    };
+    const user = global.mockDb.users.find(u => u._id === userId);
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authorized. Invalid or expired sandbox token.'
+      });
+    }
 
     if (user.status === 'blocked') {
       return res.status(401).json({

@@ -40,8 +40,28 @@ router.post(
   loginLimiter,
   speedLimiter,
   [
-    body('email').trim().isEmail().withMessage('Please provide a valid email address.'),
-    body('password').notEmpty().withMessage('Password is required.')
+    body('email').custom((value, { req }) => {
+      if (req.body.mobile) return true;
+      if (!value) throw new Error('Email is required.');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) throw new Error('Please provide a valid email address.');
+      return true;
+    }),
+    body('password').custom((value, { req }) => {
+      if (req.body.mobile) return true;
+      if (!value) throw new Error('Password is required.');
+      return true;
+    }),
+    body('mobile').custom((value, { req }) => {
+      if (req.body.email) return true;
+      if (!value) throw new Error('Mobile number is required.');
+      return true;
+    }),
+    body('otp').custom((value, { req }) => {
+      if (req.body.email) return true;
+      if (!value) throw new Error('OTP is required.');
+      if (value.length !== 6) throw new Error('OTP must be exactly 6 digits.');
+      return true;
+    })
   ],
   validate,
   login
