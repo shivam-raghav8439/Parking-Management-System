@@ -1,15 +1,42 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, LogIn, LogOut, Map, Camera } from 'lucide-react';
+import { LayoutDashboard, LogIn, LogOut, Map, Camera, CalendarRange, CalendarCheck } from 'lucide-react';
 
 export default function BottomNavigation() {
-  const navItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Entry', path: '/entry', icon: LogIn },
-    { name: 'ANPR', path: '/anpr', icon: Camera },
-    { name: 'Parking Map', path: '/map', icon: Map },
-    { name: 'Exit', path: '/exit', icon: LogOut },
-  ];
+  const [user, setUser] = useState(() => {
+    const cached = localStorage.getItem('user');
+    return cached ? JSON.parse(cached) : null;
+  });
+
+  useEffect(() => {
+    const handleAuth = () => {
+      const cached = localStorage.getItem('user');
+      setUser(cached ? JSON.parse(cached) : null);
+    };
+    window.addEventListener('authChange', handleAuth);
+    return () => window.removeEventListener('authChange', handleAuth);
+  }, []);
+
+  const role = user ? user.role : 'user';
+
+  const getNavItems = () => {
+    if (role === 'user') {
+      return [
+        { name: 'Book Parking', path: '/book-slot', icon: CalendarRange },
+        { name: 'My Bookings', path: '/my-bookings', icon: CalendarCheck },
+        { name: 'Parking Map', path: '/map', icon: Map }
+      ];
+    }
+    return [
+      { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+      { name: 'Entry', path: '/entry', icon: LogIn },
+      { name: 'ANPR', path: '/anpr', icon: Camera },
+      { name: 'Parking Map', path: '/map', icon: Map },
+      { name: 'Exit', path: '/exit', icon: LogOut },
+    ];
+  };
+
+  const navItems = getNavItems();
 
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 shadow-2xl transition-colors duration-300 safe-bottom">

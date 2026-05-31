@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { parkingApi } from '../api/parkingApi';
 import toast from 'react-hot-toast';
-import { ShieldCheck, Mail, Lock, LogIn, Loader } from 'lucide-react';
+import { ShieldCheck, Mail, Lock, LogIn, Loader, AlertTriangle } from 'lucide-react';
 import GalgotiasLogo from '../components/GalgotiasLogo';
 
 export default function Login() {
@@ -10,6 +10,9 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const isBlocked = queryParams.get('blocked') === 'true';
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -30,7 +33,11 @@ export default function Login() {
         
         // Dispatch event to sync auth changes in App.jsx
         window.dispatchEvent(new Event('authChange'));
-        navigate('/dashboard');
+        if (res.user.role === 'user') {
+          navigate('/book-slot');
+        } else {
+          navigate('/dashboard');
+        }
       } else {
         toast.error(res?.message || 'Login failed. Please verify credentials.');
       }
@@ -49,15 +56,26 @@ export default function Login() {
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none"></div>
 
         {/* Brand */}
-        <div className="flex flex-col items-center mb-8">
+        <div className="flex flex-col items-center mb-6">
           <GalgotiasLogo className="w-12 h-12 md:w-16 md:h-16 mb-3 md:mb-4" />
           <h2 className="text-lg md:text-xl font-black text-slate-900 dark:text-white uppercase tracking-wider font-sans">
-            Operator Console
+            Parking Portal
           </h2>
           <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 mt-1 text-center leading-relaxed font-semibold">
             Galgotias University Parking System
           </p>
         </div>
+
+        {/* Account Blocked Alert Banner */}
+        {isBlocked && (
+          <div className="mb-6 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/35 text-rose-600 dark:text-rose-450 text-xs font-semibold flex items-start gap-2.5 shadow-sm animate-pulse">
+            <AlertTriangle className="w-5 h-5 shrink-0 text-rose-500 mt-0.5" />
+            <div>
+              <p className="font-extrabold uppercase tracking-wide">Access Denied</p>
+              <p className="mt-0.5 text-[11px] leading-relaxed">Your account has been blocked by an administrator. Active sessions have been terminated.</p>
+            </div>
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleLogin} className="space-y-5">

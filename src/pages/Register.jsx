@@ -10,6 +10,7 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [role, setRole] = useState('user');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -33,7 +34,7 @@ export default function Register() {
 
     setIsLoading(true);
     try {
-      const res = await parkingApi.register({ name, email, password });
+      const res = await parkingApi.register({ name, email, password, role });
       
       if (res && res.token) {
         localStorage.setItem('token', res.token);
@@ -43,7 +44,12 @@ export default function Register() {
         
         // Dispatch event to sync auth changes in App.jsx
         window.dispatchEvent(new Event('authChange'));
-        navigate('/dashboard');
+        
+        if (res.user.role === 'user') {
+          navigate('/book-slot');
+        } else {
+          navigate('/dashboard');
+        }
       } else {
         toast.error(res?.message || 'Registration failed.');
       }
@@ -62,10 +68,10 @@ export default function Register() {
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none"></div>
 
         {/* Brand */}
-        <div className="flex flex-col items-center mb-8">
+        <div className="flex flex-col items-center mb-6">
           <GalgotiasLogo className="w-12 h-12 md:w-16 md:h-16 mb-3 md:mb-4" />
           <h2 className="text-lg md:text-xl font-black text-slate-900 dark:text-white uppercase tracking-wider font-sans">
-            Register Operator
+            Register Account
           </h2>
           <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 mt-1 text-center leading-relaxed font-semibold">
             Galgotias University Parking System
@@ -154,6 +160,23 @@ export default function Register() {
             </div>
           </div>
 
+          {/* Account Type */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-405 uppercase tracking-wider block">
+              Account Type
+            </label>
+            <div className="relative">
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-transparent dark:bg-slate-900 text-slate-950 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none cursor-pointer"
+              >
+                <option value="user" className="text-slate-900 dark:text-white bg-white dark:bg-slate-900">User / Customer (Student, Faculty, Visitor)</option>
+                <option value="operator" className="text-slate-900 dark:text-white bg-white dark:bg-slate-900">Operator / Staff (Manual entry desk)</option>
+              </select>
+            </div>
+          </div>
+
           {/* Action */}
           <button
             type="submit"
@@ -161,7 +184,7 @@ export default function Register() {
             className="w-full mt-2 py-3 bg-primary-700 hover:bg-primary-850 active:bg-primary-900 disabled:opacity-50 text-white rounded-xl text-sm font-semibold shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
             {isLoading ? <Loader className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
-            Register Operator Account
+            Register Account
           </button>
         </form>
 

@@ -20,6 +20,8 @@ import reportsRouter from './routes/reports.js';
 import settingsRouter from './routes/settings.js';
 import anprRouter from './routes/anpr.js';
 import vehicleRouter from './routes/vehicle.js';
+import userRouter from './routes/users.js';
+import bookingRouter from './routes/bookings.js';
 
 // 1. Initialize environment configurations
 dotenv.config();
@@ -90,6 +92,8 @@ app.use('/api/reports', reportsRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/anpr', anprRouter);
 app.use('/api/vehicle', vehicleRouter);
+app.use('/api/users', userRouter);
+app.use('/api/bookings', bookingRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

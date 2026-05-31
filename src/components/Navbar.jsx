@@ -222,46 +222,61 @@ export default function Navbar() {
       {/* Mobile Drawer menu */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-4 px-4 space-y-3 transition-colors duration-300">
-          {stats && (
+          {stats && role !== 'user' && (
             <div className="flex justify-between items-center px-2 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30">
-              <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-400">Available Slots:</span>
+              <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-450">Available Slots:</span>
               <span className="text-xs font-extrabold text-emerald-700 dark:text-emerald-400">{stats?.availableSlots ?? '--'}</span>
             </div>
           )}
 
           {currentUser && (
-            <div className="px-2 py-1 text-xs text-slate-500 font-medium">
+            <div className="px-2 py-1 text-xs text-slate-505 font-medium">
               Signed in as: <span className="font-bold text-slate-800 dark:text-slate-200">{currentUser.name} ({currentUser.role})</span>
             </div>
           )}
 
           <nav className="flex flex-col gap-1">
-            {[
-              { name: 'Dashboard', path: '/dashboard' },
-              { name: 'Entry Desk', path: '/entry' },
-              { name: 'Exit Checkpoint', path: '/exit' },
-              { name: 'Live Gate Camera', path: '/anpr' },
-              { name: 'Vehicle Registry', path: '/register-vehicle' },
-              { name: 'Parking Map', path: '/map' },
-              { name: 'History Logs', path: '/history' },
-              { name: 'Reports', path: '/reports' },
-              { name: 'Settings', path: '/settings' }
-            ].map(item => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                onClick={() => setMobileMenuOpen(false)}
-                className={({ isActive }) =>
-                  `px-3 py-2 rounded-lg text-sm font-semibold block ${
-                    isActive
-                      ? 'bg-primary-50 text-primary-700 dark:bg-primary-950/30 dark:text-primary-400'
-                      : 'text-slate-650 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                  }`
+            {(() => {
+              const items = [];
+              if (role === 'user') {
+                items.push({ name: 'Book Parking', path: '/book-slot' });
+                items.push({ name: 'My Bookings', path: '/my-bookings' });
+                items.push({ name: 'Parking Map', path: '/map' });
+              } else {
+                items.push({ name: 'Dashboard', path: '/dashboard' });
+                items.push({ name: 'Entry Desk', path: '/entry' });
+                items.push({ name: 'Exit Checkpoint', path: '/exit' });
+                items.push({ name: 'Live Gate Camera', path: '/anpr' });
+                items.push({ name: 'Vehicle Registry', path: '/register-vehicle' });
+                items.push({ name: 'Parking Map', path: '/map' });
+                items.push({ name: 'History Logs', path: '/history' });
+
+                if (role === 'admin') {
+                  items.push({ name: 'User Management', path: '/admin/users' });
+                  items.push({ name: 'Slot Management', path: '/admin/slots' });
+                  items.push({ name: 'Booking Management', path: '/admin/bookings' });
+                  items.push({ name: 'Reports', path: '/reports' });
+                  items.push({ name: 'Settings', path: '/settings' });
                 }
-              >
-                {item.name}
-              </NavLink>
-            ))}
+              }
+
+              return items.map(item => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={({ isActive }) =>
+                    `px-3 py-2 rounded-lg text-sm font-semibold block ${
+                      isActive
+                        ? 'bg-primary-50 text-primary-700 dark:bg-primary-950/30 dark:text-primary-400'
+                        : 'text-slate-650 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`
+                  }
+                >
+                  {item.name}
+                </NavLink>
+              ));
+            })()}
           </nav>
         </div>
       )}

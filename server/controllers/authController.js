@@ -34,13 +34,19 @@ export const register = async (req, res, next) => {
     }
 
     const userCount = await User.countDocuments();
-    const role = userCount === 0 ? 'admin' : 'operator';
+    let role = 'user';
+    if (userCount === 0) {
+      role = 'admin';
+    } else if (req.body.role && ['user', 'operator'].includes(req.body.role)) {
+      role = req.body.role;
+    }
 
     const user = await User.create({
       name,
       email,
       password,
-      role
+      role,
+      status: 'active'
     });
 
     const token = generateToken(user._id);
@@ -54,7 +60,8 @@ export const register = async (req, res, next) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        status: user.status
       }
     });
   } catch (error) {
@@ -83,6 +90,13 @@ export const login = async (req, res, next) => {
       });
     }
 
+    if (user.status === 'blocked') {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account has been blocked by admin.'
+      });
+    }
+
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(401).json({ 
@@ -102,7 +116,8 @@ export const login = async (req, res, next) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        status: user.status
       }
     });
   } catch (error) {

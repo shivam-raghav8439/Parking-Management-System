@@ -1,6 +1,8 @@
 import Slot from '../models/Slot.js';
 import Record from '../models/Record.js';
 import ActivityLog from '../models/ActivityLog.js';
+import User from '../models/User.js';
+import Booking from '../models/Booking.js';
 import { startOfDay, subDays } from 'date-fns';
 import { SLOT_STATUSES, RECORD_STATUSES } from '../config/constants.js';
 import { mockController } from '../utils/mockController.js';
@@ -18,9 +20,18 @@ export const getSummary = async (req, res, next) => {
     const totalSlots = await Slot.countDocuments();
     const occupiedSlots = await Slot.countDocuments({ status: SLOT_STATUSES.OCCUPIED });
     const reservedSlots = await Slot.countDocuments({ status: SLOT_STATUSES.RESERVED });
+    const bookedSlots = await Slot.countDocuments({ status: 'booked' });
     const availableSlots = await Slot.countDocuments({ 
       status: { $in: [SLOT_STATUSES.AVAILABLE, SLOT_STATUSES.RESERVED] } 
     });
+
+    // User counts
+    const totalUsers = await User.countDocuments();
+    const activeUsers = await User.countDocuments({ status: 'active' });
+    const blockedUsers = await User.countDocuments({ status: 'blocked' });
+
+    // Booking counts
+    const totalBookings = await Booking.countDocuments();
 
     const todayStart = startOfDay(new Date());
     const weekStart = startOfDay(subDays(new Date(), 7));
@@ -57,6 +68,22 @@ export const getSummary = async (req, res, next) => {
     ]);
     const weekRevenue = weekRevResult.length > 0 ? weekRevResult[0].total : 0;
 
+    // Aggregate booking earnings (paid bookings)
+    const bookingEarningsResult = await Booking.aggregate([
+      { $match: { paymentStatus: 'paid' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const bookingEarnings = bookingEarningsResult.length > 0 ? bookingEarningsResult[0].total : 0;
+
+    // Total manual exits revenue
+    const totalExitsRevResult = await Record.aggregate([
+      { $match: { status: RECORD_STATUSES.EXITED } },
+      { $group: { _id: null, total: { $sum: '$fee' } } }
+    ]);
+    const totalExitsRevenue = totalExitsRevResult.length > 0 ? totalExitsRevResult[0].total : 0;
+
+    const totalEarnings = totalExitsRevenue + bookingEarnings;
+
     const zoneOccupancy = {};
     const zonesList = ['A', 'B', 'C', 'D'];
     
@@ -77,6 +104,12 @@ export const getSummary = async (req, res, next) => {
       availableSlots,
       occupiedSlots,
       reservedSlots,
+      bookedSlots,
+      totalUsers,
+      activeUsers,
+      blockedUsers,
+      totalBookings,
+      totalEarnings,
       todayRevenue,
       weekRevenue,
       zoneOccupancy,

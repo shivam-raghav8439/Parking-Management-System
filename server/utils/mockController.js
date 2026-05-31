@@ -45,18 +45,19 @@ export const mockController = {
   // AUTH
   // -------------------------------------------------------------
   register: async (req, res) => {
-    const { name, email, password } = req.body;
+    const { name, email, password, role: bodyRole } = req.body;
     const userExists = global.mockDb.users.find(u => u.email === email.toLowerCase());
     if (userExists) {
       return res.status(400).json({ success: false, message: 'User already exists in memory.' });
     }
 
-    const role = global.mockDb.users.length === 0 ? 'admin' : 'operator';
+    const role = global.mockDb.users.length === 0 ? 'admin' : (bodyRole || 'user');
     const newUser = {
       _id: `mock_user_${Date.now()}`,
       name,
       email: email.toLowerCase(),
       role,
+      status: 'active',
       createdAt: new Date()
     };
 
@@ -65,7 +66,7 @@ export const mockController = {
 
     return res.status(201).json({
       success: true,
-      token: 'mock_jwt_token_session_xxxx',
+      token: `mock_token_${newUser._id}`,
       user: newUser
     });
   },
@@ -76,20 +77,28 @@ export const mockController = {
     if (!user) {
       // Auto seed user on login in sandbox mode to make sandbox experience frictionless!
       user = {
-        _id: 'mock_admin_id',
+        _id: email.toLowerCase().includes('admin') ? 'mock_admin_id' : `mock_user_${Date.now()}`,
         name: email.split('@')[0].toUpperCase(),
         email: email.toLowerCase(),
-        role: email.toLowerCase().includes('admin') ? 'admin' : 'operator',
+        role: email.toLowerCase().includes('admin') ? 'admin' : 'user',
+        status: 'active',
         createdAt: new Date()
       };
       global.mockDb.users.push(user);
     }
 
-    await logSystemActivity('LOGIN', `Logged in operator: ${user.name} (${user.email})`, user._id);
+    if (user.status === 'blocked') {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account has been blocked by admin.'
+      });
+    }
+
+    await logSystemActivity('LOGIN', `Logged in user: ${user.name} (${user.email})`, user._id);
 
     return res.status(200).json({
       success: true,
-      token: 'mock_jwt_token_session_xxxx',
+      token: `mock_token_${user._id}`,
       user
     });
   },
@@ -281,11 +290,29 @@ export const mockController = {
   getSummary: (req, res) => {
     const slots = global.mockDb.slots;
     const records = global.mockDb.records;
+    const users = global.mockDb.users || [];
+    const bookings = global.mockDb.bookings || [];
 
     const totalSlots = slots.length;
     const occupiedSlots = slots.filter(s => s.status === SLOT_STATUSES.OCCUPIED).length;
     const reservedSlots = slots.filter(s => s.status === SLOT_STATUSES.RESERVED).length;
+    const bookedSlots = slots.filter(s => s.status === 'booked').length;
     const availableSlots = slots.filter(s => s.status === SLOT_STATUSES.AVAILABLE || s.status === SLOT_STATUSES.RESERVED).length;
+
+    const totalUsers = users.length;
+    const activeUsers = users.filter(u => u.status === 'active').length;
+    const blockedUsers = users.filter(u => u.status === 'blocked').length;
+
+    const totalBookings = bookings.length;
+    
+    // Earnings calculation
+    const bookingEarnings = bookings
+      .filter(b => b.paymentStatus === 'paid')
+      .reduce((sum, b) => sum + (b.amount || 0), 0);
+    const manualRevenue = records
+      .filter(r => r.status === 'exited')
+      .reduce((sum, r) => sum + (r.fee || 0), 0);
+    const totalEarnings = manualRevenue + bookingEarnings;
 
     const today = startOfDay(new Date());
     const todayRevenue = records
@@ -308,6 +335,12 @@ export const mockController = {
       availableSlots,
       occupiedSlots,
       reservedSlots,
+      bookedSlots,
+      totalUsers,
+      activeUsers,
+      blockedUsers,
+      totalBookings,
+      totalEarnings,
       todayRevenue,
       zoneOccupancy,
       anprToday

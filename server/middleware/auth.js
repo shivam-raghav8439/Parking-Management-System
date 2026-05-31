@@ -21,12 +21,26 @@ export const protect = async (req, res, next) => {
 
   // Handle In-Memory Sandbox Mode authentication bypass
   if (global.isMockDB) {
-    const user = global.mockDb.users[0] || { 
+    let userId = 'mock_admin_id';
+    if (token && token.startsWith('mock_token_')) {
+      userId = token.replace('mock_token_', '');
+    }
+    
+    const user = global.mockDb.users.find(u => u._id === userId) || global.mockDb.users[0] || { 
       _id: 'mock_admin_id', 
       name: 'Campus Admin', 
       email: 'admin@campus.edu', 
-      role: 'admin' 
+      role: 'admin',
+      status: 'active'
     };
+
+    if (user.status === 'blocked') {
+      return res.status(401).json({
+        success: false,
+        message: 'Your account has been blocked by admin.'
+      });
+    }
+
     req.user = user;
     return next();
   }
@@ -41,6 +55,13 @@ export const protect = async (req, res, next) => {
       return res.status(401).json({ 
         success: false, 
         message: 'The user belonging to this token no longer exists.' 
+      });
+    }
+
+    if (user.status === 'blocked') {
+      return res.status(401).json({
+        success: false,
+        message: 'Your account has been blocked by admin.'
       });
     }
 

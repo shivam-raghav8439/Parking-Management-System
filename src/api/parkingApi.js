@@ -265,6 +265,24 @@ const initMockDB = () => {
     ];
     localStorage.setItem('college_parking_anpr_logs', JSON.stringify(anprLogs));
   }
+
+  // Initialize users in sandbox
+  let users = JSON.parse(localStorage.getItem('college_parking_users'));
+  if (!users) {
+    users = [
+      { _id: 'mock_admin_id', name: 'Admin User', email: 'admin@campus.edu', role: 'admin', status: 'active', createdAt: new Date().toISOString() },
+      { _id: 'mock_operator_id', name: 'Operator User', email: 'operator@campus.edu', role: 'operator', status: 'active', createdAt: new Date().toISOString() },
+      { _id: 'mock_user_id', name: 'Rahul Sharma', email: 'user@campus.edu', role: 'user', status: 'active', createdAt: new Date().toISOString() }
+    ];
+    localStorage.setItem('college_parking_users', JSON.stringify(users));
+  }
+
+  // Initialize bookings in sandbox
+  let bookings = JSON.parse(localStorage.getItem('college_parking_bookings'));
+  if (!bookings) {
+    bookings = [];
+    localStorage.setItem('college_parking_bookings', JSON.stringify(bookings));
+  }
 };
 
 initMockDB();
@@ -299,29 +317,51 @@ const handleApiCall = async (apiPromise, mockFunc) => {
 // -------------------------------------------------------------
 const mockApi = {
   login: ({ email, password }) => {
-    const mockUser = {
-      id: 'mock_operator_id',
-      name: email.split('@')[0].toUpperCase(),
-      email: email.toLowerCase(),
-      role: email.toLowerCase().includes('admin') ? 'admin' : 'operator'
-    };
-    const mockToken = 'mock_jwt_jsonwebtoken_token_session_xxxx';
+    let users = JSON.parse(localStorage.getItem('college_parking_users')) || [];
+    let user = users.find(u => u.email === email.toLowerCase());
+    if (!user) {
+      user = {
+        _id: email.toLowerCase().includes('admin') ? 'mock_admin_id' : `mock_user_${Date.now()}`,
+        name: email.split('@')[0].toUpperCase(),
+        email: email.toLowerCase(),
+        role: email.toLowerCase().includes('admin') ? 'admin' : (email.toLowerCase().includes('operator') ? 'operator' : 'user'),
+        status: 'active',
+        createdAt: new Date().toISOString()
+      };
+      users.push(user);
+      localStorage.setItem('college_parking_users', JSON.stringify(users));
+    }
+    if (user.status === 'blocked') {
+      const err = new Error('Your account has been blocked by admin.');
+      err.response = { status: 403, data: { message: 'Your account has been blocked by admin.' } };
+      throw err;
+    }
+    const mockToken = `mock_token_${user._id || user.id}`;
     localStorage.setItem('token', mockToken);
-    localStorage.setItem('user', JSON.stringify(mockUser));
-    return { success: true, token: mockToken, user: mockUser };
+    localStorage.setItem('user', JSON.stringify(user));
+    return { success: true, token: mockToken, user };
   },
 
-  register: ({ name, email }) => {
-    const mockUser = {
-      id: `mock_operator_${Date.now()}`,
+  register: ({ name, email, role }) => {
+    let users = JSON.parse(localStorage.getItem('college_parking_users')) || [];
+    if (users.some(u => u.email === email.toLowerCase())) {
+      throw new Error('User already exists');
+    }
+    const computedRole = users.length === 0 ? 'admin' : (role || 'user');
+    const user = {
+      _id: `mock_user_${Date.now()}`,
       name,
       email: email.toLowerCase(),
-      role: 'operator'
+      role: computedRole,
+      status: 'active',
+      createdAt: new Date().toISOString()
     };
-    const mockToken = 'mock_jwt_jsonwebtoken_token_session_xxxx';
+    users.push(user);
+    localStorage.setItem('college_parking_users', JSON.stringify(users));
+    const mockToken = `mock_token_${user._id}`;
     localStorage.setItem('token', mockToken);
-    localStorage.setItem('user', JSON.stringify(mockUser));
-    return { success: true, token: mockToken, user: mockUser };
+    localStorage.setItem('user', JSON.stringify(user));
+    return { success: true, token: mockToken, user };
   },
 
   getCurrentUser: () => {
@@ -803,7 +843,36 @@ export const parkingApi = {
     handleApiCall(() => client.delete(`/anpr/vehicles/${id}`), () => mockApi.deleteRegisteredVehicle(id)),
 
   getVehicleDetails: (plate) =>
-    handleApiCall(() => client.post('/vehicle/details', { plate }), () => mockApi.getVehicleDetails(plate))
+    handleApiCall(() => client.post('/vehicle/details', { plate }), () => mockApi.getVehicleDetails(plate)),
+
+  getUsers: (params) =>
+    handleApiCall(() => client.get('/users', { params }), () => mockApi.getUsers(params)),
+  blockUser: (id) =>
+    handleApiCall(() => client.put(`/users/${id}/block`), () => mockApi.blockUser(id)),
+  unblockUser: (id) =>
+    handleApiCall(() => client.put(`/users/${id}/unblock`), () => mockApi.unblockUser(id)),
+  deleteUser: (id) =>
+    handleApiCall(() => client.delete(`/users/${id}`), () => mockApi.deleteUser(id)),
+
+  createBooking: (data) =>
+    handleApiCall(() => client.post('/bookings', data), () => mockApi.createBooking(data)),
+  getMyBookings: () =>
+    handleApiCall(() => client.get('/bookings/my'), () => mockApi.getMyBookings()),
+  cancelBooking: (id) =>
+    handleApiCall(() => client.post(`/bookings/${id}/cancel`), () => mockApi.cancelBooking(id)),
+  getAllBookings: (params) =>
+    handleApiCall(() => client.get('/bookings', { params }), () => mockApi.getAllBookings(params)),
+  updateBookingStatus: (id, data) =>
+    handleApiCall(() => client.put(`/bookings/${id}/status`, data), () => mockApi.updateBookingStatus(id, data)),
+  payBooking: (id, data) =>
+    handleApiCall(() => client.post(`/bookings/${id}/pay`, data), () => mockApi.payBooking(id, data)),
+
+  createSlot: (data) =>
+    handleApiCall(() => client.post('/slots', data), () => mockApi.createSlot(data)),
+  updateSlot: (id, data) =>
+    handleApiCall(() => client.put(`/slots/${id}`, data), () => mockApi.updateSlot(id, data)),
+  deleteSlot: (id) =>
+    handleApiCall(() => client.delete(`/slots/${id}`), () => mockApi.deleteSlot(id))
 };
 
 // Append missing mock functions to mockApi object
@@ -1094,4 +1163,159 @@ mockApi.getVehicleDetails = (plate) => {
     success: true,
     data: vehicleDetails
   };
+};
+
+mockApi.getUsers = (params = {}) => {
+  let users = JSON.parse(localStorage.getItem('college_parking_users')) || [];
+  if (params.search) {
+    const q = params.search.toLowerCase();
+    users = users.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
+  }
+  return { success: true, count: users.length, users };
+};
+
+mockApi.blockUser = (id) => {
+  let users = JSON.parse(localStorage.getItem('college_parking_users')) || [];
+  const user = users.find(u => u._id === id);
+  if (!user) throw new Error('User not found');
+  user.status = 'blocked';
+  localStorage.setItem('college_parking_users', JSON.stringify(users));
+  
+  // Update local session if currently logged in user is blocked
+  const currentUser = JSON.parse(localStorage.getItem('user'));
+  if (currentUser && (currentUser._id === id || currentUser.id === id)) {
+    currentUser.status = 'blocked';
+    localStorage.setItem('user', JSON.stringify(currentUser));
+  }
+  return { success: true, message: 'User blocked successfully', user };
+};
+
+mockApi.unblockUser = (id) => {
+  let users = JSON.parse(localStorage.getItem('college_parking_users')) || [];
+  const user = users.find(u => u._id === id);
+  if (!user) throw new Error('User not found');
+  user.status = 'active';
+  localStorage.setItem('college_parking_users', JSON.stringify(users));
+  return { success: true, message: 'User unblocked successfully', user };
+};
+
+mockApi.deleteUser = (id) => {
+  let users = JSON.parse(localStorage.getItem('college_parking_users')) || [];
+  users = users.filter(u => u._id !== id);
+  localStorage.setItem('college_parking_users', JSON.stringify(users));
+  return { success: true, message: 'User deleted successfully' };
+};
+
+mockApi.createSlot = (data) => {
+  let slots = JSON.parse(localStorage.getItem('college_parking_slots')) || [];
+  const slotNumber = data.slotNumber || `${data.zoneId || data.zone}-${data.number}`;
+  if (slots.some(s => s.slotNumber === slotNumber)) {
+    throw new Error(`Slot ${slotNumber} already exists`);
+  }
+  const newSlot = {
+    slotNumber,
+    zoneId: data.zoneId || data.zone || 'A',
+    number: parseInt(data.number) || (slots.length + 1),
+    status: data.status || 'available',
+    plate: null,
+    ownerInitials: null,
+    price: data.price ? parseFloat(data.price) : null
+  };
+  slots.push(newSlot);
+  localStorage.setItem('college_parking_slots', JSON.stringify(slots));
+  return { success: true, slot: newSlot };
+};
+
+mockApi.updateSlot = (id, data) => {
+  let slots = JSON.parse(localStorage.getItem('college_parking_slots')) || [];
+  const slot = slots.find(s => s.slotNumber === id);
+  if (!slot) throw new Error('Slot not found');
+  if (data.status) slot.status = data.status;
+  if (data.price !== undefined) slot.price = data.price ? parseFloat(data.price) : null;
+  if (data.zoneId) slot.zoneId = data.zoneId;
+  if (data.zone) slot.zoneId = data.zone;
+  localStorage.setItem('college_parking_slots', JSON.stringify(slots));
+  return { success: true, slot };
+};
+
+mockApi.deleteSlot = (id) => {
+  let slots = JSON.parse(localStorage.getItem('college_parking_slots')) || [];
+  slots = slots.filter(s => s.slotNumber !== id);
+  localStorage.setItem('college_parking_slots', JSON.stringify(slots));
+  return { success: true, message: 'Slot deleted successfully' };
+};
+
+mockApi.createBooking = (data) => {
+  let bookings = JSON.parse(localStorage.getItem('college_parking_bookings')) || [];
+  const currentUser = JSON.parse(localStorage.getItem('user')) || { _id: 'mock_user_id', name: 'Guest' };
+  const newBooking = {
+    _id: `booking_${Date.now()}`,
+    userId: currentUser._id || currentUser.id,
+    user: currentUser,
+    slotId: data.slotId || data.slotNumber,
+    vehicleNumber: data.vehicleNumber.toUpperCase(),
+    vehicleType: data.vehicleType || 'Car',
+    bookingDate: data.bookingDate || new Date().toISOString(),
+    startTime: data.startTime,
+    endTime: data.endTime,
+    amount: data.amount || 50,
+    status: 'pending',
+    paymentStatus: 'pending',
+    createdAt: new Date().toISOString()
+  };
+  bookings.push(newBooking);
+  localStorage.setItem('college_parking_bookings', JSON.stringify(bookings));
+  return { success: true, booking: newBooking };
+};
+
+mockApi.getMyBookings = () => {
+  const bookings = JSON.parse(localStorage.getItem('college_parking_bookings')) || [];
+  const currentUser = JSON.parse(localStorage.getItem('user')) || { _id: 'mock_user_id' };
+  const my = bookings.filter(b => b.userId === (currentUser._id || currentUser.id));
+  return { success: true, bookings: my };
+};
+
+mockApi.cancelBooking = (id) => {
+  let bookings = JSON.parse(localStorage.getItem('college_parking_bookings')) || [];
+  const booking = bookings.find(b => b._id === id);
+  if (!booking) throw new Error('Booking not found');
+  booking.status = 'cancelled';
+  localStorage.setItem('college_parking_bookings', JSON.stringify(bookings));
+  return { success: true, booking };
+};
+
+mockApi.getAllBookings = (params = {}) => {
+  let bookings = JSON.parse(localStorage.getItem('college_parking_bookings')) || [];
+  if (params.status) {
+    bookings = bookings.filter(b => b.status === params.status);
+  }
+  return { success: true, bookings };
+};
+
+mockApi.updateBookingStatus = (id, data) => {
+  let bookings = JSON.parse(localStorage.getItem('college_parking_bookings')) || [];
+  const booking = bookings.find(b => b._id === id);
+  if (!booking) throw new Error('Booking not found');
+  booking.status = data.status;
+  
+  if (data.status === 'approved') {
+    let slots = JSON.parse(localStorage.getItem('college_parking_slots')) || [];
+    const slot = slots.find(s => s.slotNumber === booking.slotId);
+    if (slot) {
+      slot.status = 'booked';
+      localStorage.setItem('college_parking_slots', JSON.stringify(slots));
+    }
+  }
+  localStorage.setItem('college_parking_bookings', JSON.stringify(bookings));
+  return { success: true, booking };
+};
+
+mockApi.payBooking = (id, data) => {
+  let bookings = JSON.parse(localStorage.getItem('college_parking_bookings')) || [];
+  const booking = bookings.find(b => b._id === id);
+  if (!booking) throw new Error('Booking not found');
+  booking.paymentStatus = 'paid';
+  booking.transactionId = data.transactionId || `pay_${Date.now()}`;
+  localStorage.setItem('college_parking_bookings', JSON.stringify(bookings));
+  return { success: true, booking };
 };

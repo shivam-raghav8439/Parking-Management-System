@@ -172,4 +172,127 @@ export const seedSlots = async (req, res, next) => {
   }
 };
 
-export default { getSlots, getSlotById, updateSlotStatus, seedSlots };
+export const createSlot = async (req, res, next) => {
+  const { slotId, zone, status, vehicleTypes, price } = req.body;
+
+  if (global.isMockDB) {
+    const existing = global.mockDb.slots.find(s => s.slotId === slotId);
+    if (existing) {
+      return res.status(400).json({ success: false, message: `Slot ${slotId} already exists.` });
+    }
+
+    const newSlot = {
+      _id: `mock_slot_${slotId}`,
+      slotId,
+      zone,
+      status: status || 'available',
+      vehicleTypes: vehicleTypes || ['Car', 'Bike'],
+      price: price || null,
+      currentRecord: null
+    };
+
+    global.mockDb.slots.push(newSlot);
+    await logSystemActivity('SLOT_UPDATE', `Admin created slot ${slotId} in Zone ${zone}`, req.user?._id);
+    return res.status(201).json({ success: true, data: newSlot });
+  }
+
+  try {
+    const existing = await Slot.findOne({ slotId });
+    if (existing) {
+      return res.status(400).json({ success: false, message: `Slot ${slotId} already exists.` });
+    }
+
+    const slot = await Slot.create({
+      slotId,
+      zone,
+      status: status || 'available',
+      vehicleTypes: vehicleTypes || ['Car', 'Bike'],
+      price: price || null
+    });
+
+    await clearParkingCaches();
+    await logSystemActivity('SLOT_UPDATE', `Admin created slot ${slotId} in Zone ${zone}`, req.user._id);
+
+    res.status(201).json({
+      success: true,
+      data: slot
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateSlot = async (req, res, next) => {
+  const { zone, status, vehicleTypes, price } = req.body;
+
+  if (global.isMockDB) {
+    const slot = global.mockDb.slots.find(s => s.slotId === req.params.slotId);
+    if (!slot) {
+      return res.status(404).json({ success: false, message: `Slot ${req.params.slotId} not found.` });
+    }
+
+    if (zone) slot.zone = zone;
+    if (status) slot.status = status;
+    if (vehicleTypes) slot.vehicleTypes = vehicleTypes;
+    if (price !== undefined) slot.price = price;
+
+    await logSystemActivity('SLOT_UPDATE', `Admin updated details of slot ${req.params.slotId}`, req.user?._id);
+    return res.status(200).json({ success: true, data: slot });
+  }
+
+  try {
+    const slot = await Slot.findOne({ slotId: req.params.slotId });
+    if (!slot) {
+      return res.status(404).json({ success: false, message: `Slot ${req.params.slotId} not found.` });
+    }
+
+    if (zone) slot.zone = zone;
+    if (status) slot.status = status;
+    if (vehicleTypes) slot.vehicleTypes = vehicleTypes;
+    if (price !== undefined) slot.price = price;
+
+    await slot.save();
+    await clearParkingCaches();
+    await logSystemActivity('SLOT_UPDATE', `Admin updated details of slot ${req.params.slotId}`, req.user._id);
+
+    res.status(200).json({
+      success: true,
+      data: slot
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteSlot = async (req, res, next) => {
+  if (global.isMockDB) {
+    const index = global.mockDb.slots.findIndex(s => s.slotId === req.params.slotId);
+    if (index === -1) {
+      return res.status(404).json({ success: false, message: `Slot ${req.params.slotId} not found.` });
+    }
+    
+    global.mockDb.slots.splice(index, 1);
+    await logSystemActivity('SLOT_UPDATE', `Admin deleted slot ${req.params.slotId}`, req.user?._id);
+    return res.status(200).json({ success: true, message: 'Slot deleted successfully' });
+  }
+
+  try {
+    const slot = await Slot.findOne({ slotId: req.params.slotId });
+    if (!slot) {
+      return res.status(404).json({ success: false, message: `Slot ${req.params.slotId} not found.` });
+    }
+
+    await Slot.deleteOne({ slotId: req.params.slotId });
+    await clearParkingCaches();
+    await logSystemActivity('SLOT_UPDATE', `Admin deleted slot ${req.params.slotId}`, req.user._id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Slot deleted successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export default { getSlots, getSlotById, updateSlotStatus, seedSlots, createSlot, updateSlot, deleteSlot };

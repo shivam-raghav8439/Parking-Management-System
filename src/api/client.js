@@ -30,6 +30,19 @@ client.interceptors.response.use(
     const originalRequest = error.config;
     
     // Handle token expiration or invalidation (401 Unauthorized)
+    const isBlocked = error.response && 
+      (error.response.status === 401 || error.response.status === 403) && 
+      error.response.data?.message?.toLowerCase().includes('blocked');
+
+    if (isBlocked) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login?blocked=true';
+      }
+      return Promise.reject(error);
+    }
+
     if (error.response && error.response.status === 401 && !originalRequest._isRetryAuth) {
       originalRequest._isRetryAuth = true;
       localStorage.removeItem('token');

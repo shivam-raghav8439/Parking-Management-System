@@ -3,20 +3,24 @@ import {
   getSlots, 
   getSlotById, 
   updateSlotStatus, 
-  seedSlots 
+  seedSlots,
+  createSlot,
+  updateSlot,
+  deleteSlot
 } from '../controllers/slotController.js';
 import { protect, restrictTo } from '../middleware/auth.js';
 import { cacheMiddleware } from '../utils/cache.js';
 
 const router = express.Router();
 
-// Require authentication for all slots operations
 router.use(protect);
 
 router.get('/', cacheMiddleware(10), getSlots);
 router.get('/:slotId', getSlotById);
 
-// Admin-only operations
+router.post('/', restrictTo('admin'), createSlot);
+router.put('/:slotId', restrictTo('admin'), updateSlot);
+router.delete('/:slotId', restrictTo('admin'), deleteSlot);
 router.patch('/:slotId', restrictTo('admin'), updateSlotStatus);
 router.post('/seed', restrictTo('admin'), seedSlots);
 
