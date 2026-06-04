@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { Suspense, lazy } from 'react';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -41,7 +41,7 @@ const Loader = () => (
 function App() {
   const token = localStorage.getItem('token');
   return (
-    <Router>
+    <>
       <Suspense fallback={<Loader />}>
         <Routes>
           {/* Public routes */}
@@ -83,7 +83,7 @@ function App() {
       }}/>
       <InstallPrompt />
       {token && <FloatingAI />}
-    </Router>
+    </>
   );
 }
 
